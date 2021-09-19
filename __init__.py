@@ -10,11 +10,21 @@ class User:
         self.uuid = uuid
         self.username = username
 
+class Channel:
+    """a channel. Shut up pylint"""
+    def __init__(self, client, name):
+        self.client = client
+        self.name = name
+
+    def send(self, message: str):
+        self.client.send(message)
+
 class Message:
     """Represents a message in a channel on the server"""
-    def __init__(self, content: str, user: User):
+    def __init__(self, content: str, user: User, channel: Channel):
         self.content = content
         self.user = user
+        self.channel = channel
 
 class Client:
     """Represents a client connection to one server"""
@@ -25,14 +35,15 @@ class Client:
         self.password = password
         self.uuid = uuid
         self.message_callback = None
-
+        self.ssock = None
+        
     def handle_packet(self, packet):
         # todo handle json decoding error
         packet = json.loads(packet)
         print(packet)
         if packet.get("content", None) is not None:
             if self.message_callback is not None:
-                self.message_callback(Message(packet["content"], None))
+                self.message_callback(Message(packet["content"], None, Channel(self, "general")))
 
         if packet.get("command", None) is not None:
             if packet["command"] == "set":
@@ -42,11 +53,15 @@ class Client:
             else:
                 print("Got weird command", packet)
 
+    def send(self, message: str):
+        self.ssock.send((message + "\n").encode("utf-8"))
+
     def run(self):
         context = ssl.SSLContext()
 
         with socket.create_connection((self.ip, self.port)) as sock:
             with context.wrap_socket(sock, server_hostname=self.ip) as ssock:
+                self.ssock = ssock
                 print(ssock.version())
                 if self.uuid is None:
                     ssock.send(b"/register\n")
