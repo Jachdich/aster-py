@@ -1,5 +1,5 @@
 import asterpy
-client = asterpy.Client("cospox.com", 2345, "jamsbot", "", None)
+client = asterpy.Client("cospox.com", 2345, "jamsbot", "", 1284344576730345505)
 
 def on_message(message):
     print(message.content)

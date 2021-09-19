@@ -1,32 +1,62 @@
+"""Simple python wrapper for controlling an aster account"""
+
 import socket
 import ssl
+import json
 
 class User:
+    """Represents a user on the aster server"""
     def __init__(self, uuid: int, username: str):
         self.uuid = uuid
         self.username = username
 
 class Message:
+    """Represents a message in a channel on the server"""
     def __init__(self, content: str, user: User):
         self.content = content
         self.user = user
 
 class Client:
+    """Represents a client connection to one server"""
     def __init__(self, ip: str, port: int, username: str, password: str, uuid=None):
         self.ip = ip
         self.port = port
         self.username = username
         self.password = password
         self.uuid = uuid
-        self.on_message = None
+        self.message_callback = None
+
+    def handle_packet(self, packet):
+        # todo handle json decoding error
+        packet = json.loads(packet)
+        print(packet)
+        if packet.get("content", None) is not None:
+            if self.message_callback is not None:
+                self.message_callback(Message(packet["content"], None))
+
+        if packet.get("command", None) is not None:
+            if packet["command"] == "set":
+                if packet["key"] == "self_uuid":
+                    print("Your UUID =", packet["value"])
+
+            else:
+                print("Got weird command", packet)
 
     def run(self):
-        context = ssl.create_default_context()
-        
+        context = ssl.SSLContext()
+
         with socket.create_connection((self.ip, self.port)) as sock:
-            with context.wrap_socket(sock, server_hostname=self.ip, verify=False) as ssock:
+            with context.wrap_socket(sock, server_hostname=self.ip) as ssock:
                 print(ssock.version())
+                if self.uuid is None:
+                    ssock.send(b"/register\n")
+                else:
+                    ssock.send((f"/login {self.uuid}\n").encode("utf-8"))
+                ssock.send((f"/nick {self.username}\n/passwd {self.password}\n").encode("utf-8"))
+                total_data = b""
                 while True:
-                    sock.send("/get_name\n")
-                    some_data = ssock.recv(1024)
-                    print(some_data)
+                    total_data += ssock.recv(1024)
+                    if b"\n" in total_data:
+                        data = total_data.decode("utf-8").split("\n")
+                        total_data = ("\n".join(data[1:])).encode("utf-8")
+                        self.handle_packet(data[0])
