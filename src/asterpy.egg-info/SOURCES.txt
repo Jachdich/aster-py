@@ -1,0 +1,12 @@
+LICENSE
+README.md
+pyproject.toml
+setup.cfg
+src/asterpy/__init__.py
+src/asterpy/channel.py
+src/asterpy/message.py
+src/asterpy/user.py
+src/asterpy.egg-info/PKG-INFO
+src/asterpy.egg-info/SOURCES.txt
+src/asterpy.egg-info/dependency_links.txt
+src/asterpy.egg-info/top_level.txt

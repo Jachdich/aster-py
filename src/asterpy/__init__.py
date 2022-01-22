@@ -3,28 +3,15 @@
 import socket
 import ssl
 import json
+from .user import User
+from .channel import Channel
+from .message import Message
 
-class User:
-    """Represents a user on the aster server"""
-    def __init__(self, uuid: int, username: str):
-        self.uuid = uuid
-        self.username = username
+DEBUG = False
 
-class Channel:
-    """a channel. Shut up pylint"""
-    def __init__(self, client, name):
-        self.client = client
-        self.name = name
-
-    def send(self, message: str):
-        self.client.send(message)
-
-class Message:
-    """Represents a message in a channel on the server"""
-    def __init__(self, content: str, user: User, channel: Channel):
-        self.content = content
-        self.user = user
-        self.channel = channel
+def debug(*args):
+    if DEBUG:
+        print(*args)
 
 class Client:
     """Represents a client connection to one server"""
@@ -34,24 +21,29 @@ class Client:
         self.username = username
         self.password = password
         self.uuid = uuid
-        self.message_callback = None
+        self.on_message = None
+        self.on_ready: Function = None
         self.ssock = None
+
+    def event(self, fn):
+        setattr(self, fn.__name__, fn)
+        return fn
         
     def handle_packet(self, packet):
         # todo handle json decoding error
         packet = json.loads(packet)
-        print(packet)
+        debug(packet)
         if packet.get("content", None) is not None:
-            if self.message_callback is not None:
-                self.message_callback(Message(packet["content"], None, Channel(self, "general")))
+            if self.on_message is not None:
+                self.on_message(Message(packet["content"], None, Channel(self, "general")))
 
         if packet.get("command", None) is not None:
             if packet["command"] == "set":
                 if packet["key"] == "self_uuid":
-                    print("Your UUID =", packet["value"])
+                    debug("Your UUID =", packet["value"])
 
             else:
-                print("Got weird command", packet)
+                debug("Got weird command", packet)
 
     def send(self, message: str):
         self.ssock.send((message + "\n").encode("utf-8"))
@@ -62,12 +54,14 @@ class Client:
         with socket.create_connection((self.ip, self.port)) as sock:
             with context.wrap_socket(sock, server_hostname=self.ip) as ssock:
                 self.ssock = ssock
-                print(ssock.version())
                 if self.uuid is None:
                     ssock.send(b"/register\n")
                 else:
                     ssock.send((f"/login {self.uuid}\n").encode("utf-8"))
                 ssock.send((f"/nick {self.username}\n/passwd {self.password}\n").encode("utf-8"))
+                if self.on_ready is not None:
+                    self.on_ready()
+                
                 total_data = b""
                 while True:
                     total_data += ssock.recv(1024)
