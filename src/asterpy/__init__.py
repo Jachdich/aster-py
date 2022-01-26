@@ -3,6 +3,7 @@
 import socket
 import ssl
 import json
+import threading
 from .user import User
 from .channel import Channel
 from .message import Message
@@ -30,7 +31,11 @@ class Client:
         self.channels = []
         self.name = ""
         self.pfp_b64 = ""
-        
+
+        #TODO this is terrible, make it better
+        self.waiting_for = None
+        self.waiting_data = None
+        #self.data_lock = threading.Condition()
 
         self.peers = {}
         self.running = True
@@ -47,13 +52,18 @@ class Client:
         debug(f"Got packet, command {packet.get('command')}")
         if self.on_packet is not None:
             self.on_packet(packet)
-        
-        if packet.get("content", None) is not None:
-            if self.on_message is not None:
-                self.on_message(Message(packet["content"], self.peers[packet["author_uuid"]], self.current_channel, packet["date"]))
 
+        if self.waiting_for is not None and packet.get("command") == self.waiting_for:
+            self.waiting_data = packet
+            self.waiting_for = None
+            #self.data_lock.notify()
+        
         if packet.get("command", None) is not None:
-            if packet["command"] == "set":
+            if packet["command"] == "content":
+                if self.on_message is not None:
+                    self.on_message(Message(packet["content"], self.peers[packet["author_uuid"]], self.current_channel, packet["date"]))
+            
+            elif packet["command"] == "set":
                 if packet["key"] == "self_uuid":
                     debug("Your UUID =", packet["value"])
                     self.self_uuid = packet["value"]
@@ -89,6 +99,7 @@ class Client:
             #if self.self_uuid += 
 
     def send(self, message: str):
+        print(f"Sending message '{message}'")
         self.ssock.send((message + "\n").encode("utf-8"))
 
     def disconnect(self):
@@ -117,30 +128,49 @@ class Client:
         self.channels.append(Channel(self, data["name"], data["uuid"]))
 
     def join(self, channel):
+        if self.current_channel == channel:
+            return
         self.send("/join " + channel.name)
         self.current_channel = channel
+
+    def get_history(self, channel):
+        if True:#with self.data_lock:
+            orig_channel = self.current_channel
+            self.join(channel)
+            self.waiting_for = "history"
+            self.send("/history 100")
+            self.join(orig_channel)
+            return []
+            while self.waiting_data is None:
+                pass#self.data_lock.wait()
+
+            packet = self.waiting_data
+            self.waiting_data = None
+
+            return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
  
     def run(self):
         context = ssl.SSLContext()
+        if  True:#with self.data_lock:
+            with socket.create_connection((self.ip, self.port)) as sock:
+                with context.wrap_socket(sock, server_hostname=self.ip) as ssock:
+                    self.sock = sock
+                    self.ssock = ssock
+                    if self.uuid is None:
+                        ssock.send(b"/register\n")
+                        ssock.send((f"/nick {self.username}\n/passwd {self.password}\n").encode("utf-8"))
+                    else:
+                        ssock.send((f"/login {self.uuid}\n").encode("utf-8"))
 
-        with socket.create_connection((self.ip, self.port)) as sock:
-            with context.wrap_socket(sock, server_hostname=self.ip) as ssock:
-                self.sock = sock
-                self.ssock = ssock
-                if self.uuid is None:
-                    ssock.send(b"/register\n")
-                    ssock.send((f"/nick {self.username}\n/passwd {self.password}\n").encode("utf-8"))
-                else:
-                    ssock.send((f"/login {self.uuid}\n").encode("utf-8"))
-
-                ssock.send("/get_all_metadata\n/get_channels\n/online\n/get_name\n/get_icon\n".encode("utf-8"))
-                
-                total_data = b""
-                while self.running:
-                    recvd_packet = ssock.recv(1024)
-                    if not recvd_packet: break
-                    total_data += recvd_packet
-                    if b"\n" in total_data:
-                        data = total_data.decode("utf-8").split("\n")
-                        total_data = ("\n".join(data[1:])).encode("utf-8")
-                        self.__handle_packet(data[0])
+                    ssock.send("/get_all_metadata\n/get_channels\n/online\n/get_name\n/get_icon\n".encode("utf-8"))
+                    
+                    total_data = b""
+                    while self.running:
+                        recvd_packet = ssock.recv(1024)
+                        if not recvd_packet: break
+                        print(recvd_packet)
+                        total_data += recvd_packet
+                        if b"\n" in total_data:
+                            data = total_data.decode("utf-8").split("\n")
+                            total_data = ("\n".join(data[1:])).encode("utf-8")
+                            self.__handle_packet(data[0])
