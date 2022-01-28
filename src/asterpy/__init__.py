@@ -127,6 +127,9 @@ class Client:
         for channel in self.channels:
             if channel.name == name: return channel
 
+    def get_channels(self):
+        return self.channels
+
     def __add_channel(self, data):
         self.channels.append(Channel(self, data["name"], data["uuid"]))
 

@@ -14,3 +14,6 @@ class Channel:
         self.client.send(message)
         if rejoin_channel is not None:
             self.client.join(rejoin_channel)
+
+    def to_json(self):
+        return {"name": self.name, "uuid": self.uuid}

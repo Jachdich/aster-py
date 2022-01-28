@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: asterpy
-Version: 0.0.1
+Version: 0.0.2
 Summary: A simple Python wrapper around the Aster protocol, inspired by the syntax of discord.py
 Home-page: https://github.com/Jachdich/asterpy
 Author: James Kitching
