@@ -125,7 +125,7 @@ class Client:
 
     def get_channel_by_name(self, name):
         for channel in self.channels:
-            if channel.name == name: return channel
+            if channel.name == name.strip("#"): return channel
 
     def get_channels(self):
         return self.channels
