@@ -139,17 +139,29 @@ class Client:
         self.send("/join " + channel.name)
         self.current_channel = channel
 
-    def get_history(self, channel):
-        orig_channel = self.current_channel
-        self.join(channel)
-        self.waiting_for = "history"
+    def __block_on(self, command, req_id):
+        if self.waiting_for is not None:
+            raise RuntimeWarning("Attempt to __block_on while already waiting!")
+            return
+        self.waiting_for = req_id
         with self.data_lock:
-            self.send("/history 100")
+            self.send(packet)
             while self.waiting_data is None:
                 self.data_lock.wait()
 
         packet = self.waiting_data
         self.waiting_data = None
+        self.waiting_for = None
+        
+    def get_sync(self):
+        sync_data = self.__block_on("/sync_get", "sync_get")
+        sync_servers = self.__block_on("/sync_get_servers", "sync_get_servers")
+        return SyncData.from_json(sync_data, sync_servers)
+                
+    def get_history(self, channel):
+        orig_channel = self.current_channel
+        self.join(channel)
+        packet = self.__block_on("/history 100", "history")
         self.join(orig_channel)
 
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
