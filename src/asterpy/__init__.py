@@ -4,6 +4,7 @@ import socket
 import ssl
 import json
 import threading
+import base64
 from .user import User
 from .channel import Channel
 from .message import Message
@@ -14,9 +15,12 @@ def debug(*args):
     if DEBUG:
         print(*args)
 
+def fetch_emoji(emoji):
+    pass
+
 class Client:
     """Represents a client connection to one server"""
-    def __init__(self, ip: str, port: int, username: str, password: str, uuid=None):
+    def __init__(self, ip: str, port: int, username: str, password: str, uuid=None, login=True):
         self.ip = ip
         self.port = port
         self.username = username
@@ -31,6 +35,7 @@ class Client:
         self.channels = []
         self.name = ""
         self.pfp_b64 = ""
+        self.login = login
 
         #TODO this is terrible, make it better
         self.waiting_for = None
@@ -165,6 +170,13 @@ class Client:
         self.join(orig_channel)
 
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
+
+    def fetch_emoji(self, uuid):
+        data = self.__block_on(f"/emoji {uuid}", "emoji")
+        if data["code"] == 0:
+            return data["data"]
+        else:
+            raise RuntimeError(f"Get emoji from {self.ip}:{self.port} returned code {data['code']}: {data['message']}")
  
     def run(self):
         context = ssl.SSLContext()
@@ -172,13 +184,14 @@ class Client:
             with context.wrap_socket(sock, server_hostname=self.ip) as ssock:
                 self.sock = sock
                 self.ssock = ssock
-                if self.uuid is None:
-                    ssock.send(b"/register\n")
-                    ssock.send((f"/nick {self.username}\n/passwd {self.password}\n").encode("utf-8"))
-                else:
-                    ssock.send((f"/login {self.uuid}\n").encode("utf-8"))
 
-                ssock.send("/get_all_metadata\n/get_channels\n/online\n/get_name\n/get_icon\n".encode("utf-8"))
+                if self.login:
+                    if self.uuid is None:
+                        ssock.send((f"/login_username {self.username}\n").encode("utf-8"))
+                    else:
+                        ssock.send((f"/login {self.uuid}\n").encode("utf-8"))
+
+                    ssock.send("/get_all_metadata\n/get_channels\n/online\n/get_name\n/get_icon\n".encode("utf-8"))
                 
                 total_data = b""
                 while self.running:
