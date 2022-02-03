@@ -1,5 +1,5 @@
 class SyncServer:
-    def __init__(self. ip, port, name, pfp, uuid):
+    def __init__(self, ip, port, name, pfp, uuid):
         self.ip = ip
         self.port = port
         self.uname = uname

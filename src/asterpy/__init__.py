@@ -8,6 +8,7 @@ import base64
 from .user import User
 from .channel import Channel
 from .message import Message
+from .sync import SyncData, SyncServer
 
 DEBUG = True
 
@@ -16,7 +17,25 @@ def debug(*args):
         print(*args)
 
 def fetch_emoji(emoji):
-    pass
+    #emojis of the form <:cospox.com:3245:69420:>
+    bits = emoji.split(":")
+    if len(bits) != 5:
+        raise RuntimeError("Emoji not in correct form!")
+    if bits[0] != "<" or bits[-1] != ">":
+        raise RuntimeError("Emoji not in correct form!")
+
+    ip = bits[1]
+    port = int(bits[2])
+    uuid = int(bits[3])
+
+    client = Client(ip, port, "", "", login=False)
+    def on_ready():
+        print("in on ready")
+        client.username = client.fetch_emoji(uuid)
+        client.disconnect()
+    client.on_ready = on_ready
+    client.run()
+    return client.username
 
 class Client:
     """Represents a client connection to one server"""
@@ -54,7 +73,7 @@ class Client:
         # todo handle json decoding error
         if packet == "Goodbye": return
         packet = json.loads(packet)
-        debug(f"Got packet, command {packet.get('command')}")
+        debug(f"Got packet {packet}")
         if self.on_packet is not None:
             self.on_packet(packet)
 
@@ -146,17 +165,19 @@ class Client:
 
     def __block_on(self, command, req_id):
         if self.waiting_for is not None:
-            raise RuntimeWarning("Attempt to __block_on while already waiting!")
+            raise RuntimeWarning(f"Attempt to __block_on while already waiting for '{self.waiting_for}'!")
             return
         self.waiting_for = req_id
         with self.data_lock:
-            self.send(packet)
+            self.send(command)
             while self.waiting_data is None:
                 self.data_lock.wait()
 
         packet = self.waiting_data
         self.waiting_data = None
         self.waiting_for = None
+
+        return packet
         
     def get_sync(self):
         sync_data = self.__block_on("/sync_get", "sync_get")
@@ -172,7 +193,7 @@ class Client:
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
 
     def fetch_emoji(self, uuid):
-        data = self.__block_on(f"/emoji {uuid}", "emoji")
+        data = self.__block_on(f"/get_emoji {uuid}", "get_emoji")
         if data["code"] == 0:
             return data["data"]
         else:
@@ -192,7 +213,9 @@ class Client:
                         ssock.send((f"/login {self.uuid}\n").encode("utf-8"))
 
                     ssock.send("/get_all_metadata\n/get_channels\n/online\n/get_name\n/get_icon\n".encode("utf-8"))
-                
+                else:
+                    if self.on_ready is not None:
+                        threading.Thread(target=self.on_ready).start()
                 total_data = b""
                 while self.running:
                     recvd_packet = ssock.recv(1024)
