@@ -5,10 +5,12 @@ import ssl
 import json
 import threading
 import base64
+from typing import *
 from .user import User
 from .channel import Channel
 from .message import Message
 from .sync import SyncData, SyncServer
+from .emoji import Emoji
 
 DEBUG = True
 
@@ -30,11 +32,14 @@ def fetch_emoji(emoji):
 
     client = Client(ip, port, "", "", login=False)
     def on_ready():
-        print("in on ready")
+        #TODO weird hack
         client.username = client.fetch_emoji(uuid)
         client.disconnect()
     client.on_ready = on_ready
-    client.run()
+    try:
+        client.run()
+    except OSError: #connection failed for some reason
+        return None
     return client.username
 
 class Client:
@@ -65,11 +70,11 @@ class Client:
         self.running = True
         self.initialised = False
 
-    def event(self, fn):
+    def event(self, fn: Callable):
         setattr(self, fn.__name__, fn)
         return fn
         
-    def __handle_packet(self, packet):
+    def __handle_packet(self, packet: str):
         # todo handle json decoding error
         if packet == "Goodbye": return
         packet = json.loads(packet)
@@ -133,37 +138,37 @@ class Client:
         self.running = False
         self.send("/leave")
 
-    def get_pfp(self, uuid):
+    def get_pfp(self, uuid: int) -> str:
         if uuid in self.peers:
             return self.peers[uuid].pfp
 
-    def get_name(self, uuid):
+    def get_name(self, uuid: int) -> str:
         if uuid == self.self_uuid:
             return self.username
         if uuid in self.peers:
             return self.peers[uuid].username
 
-    def get_channel(self, uuid):
+    def get_channel(self, uuid: int) -> Channel:
         for channel in self.channels:
             if channel.uuid == uuid: return channel
 
-    def get_channel_by_name(self, name):
+    def get_channel_by_name(self, name: str) -> Channel:
         for channel in self.channels:
             if channel.name == name.strip("#"): return channel
 
-    def get_channels(self):
+    def get_channels(self) -> List[Channel]:
         return self.channels
 
-    def __add_channel(self, data):
+    def __add_channel(self, data: Dict[str, Any]):
         self.channels.append(Channel(self, data["name"], data["uuid"]))
 
-    def join(self, channel):
+    def join(self, channel: Channel):
         if self.current_channel == channel:
             return
         self.send("/join " + channel.name)
         self.current_channel = channel
 
-    def __block_on(self, command, req_id):
+    def __block_on(self, command: str, req_id: str):
         if self.waiting_for is not None:
             raise RuntimeWarning(f"Attempt to __block_on while already waiting for '{self.waiting_for}'!")
             return
@@ -179,12 +184,12 @@ class Client:
 
         return packet
         
-    def get_sync(self):
+    def get_sync(self) -> SyncData:
         sync_data = self.__block_on("/sync_get", "sync_get")
         sync_servers = self.__block_on("/sync_get_servers", "sync_get_servers")
         return SyncData.from_json(sync_data, sync_servers)
                 
-    def get_history(self, channel):
+    def get_history(self, channel: Channel) -> List[Message]:
         orig_channel = self.current_channel
         self.join(channel)
         packet = self.__block_on("/history 100", "history")
@@ -192,13 +197,17 @@ class Client:
 
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
 
-    def fetch_emoji(self, uuid):
+    def fetch_emoji(self, uuid: int) -> Emoji:
         data = self.__block_on(f"/get_emoji {uuid}", "get_emoji")
         if data["code"] == 0:
-            return data["data"]
+            return Emoji.from_json(data["data"])
         else:
             raise RuntimeError(f"Get emoji from {self.ip}:{self.port} returned code {data['code']}: {data['message']}")
- 
+
+    def list_emojis(self) -> List[Tuple[int, str]]:
+        data = self.__block_on("/list_emoji", "list_emoji")
+        return [(n["uuid"], n["name"]) for n in data["data"]]
+
     def run(self):
         context = ssl.SSLContext()
         with socket.create_connection((self.ip, self.port)) as sock:
