@@ -132,9 +132,11 @@ class Client:
             #if self.self_uuid += 
 
     def send(self, message: str):
+        #TODO if not connected, raise proper error
         self.ssock.send((message + "\n").encode("utf-8"))
 
     def disconnect(self):
+        #same with this
         self.running = False
         self.send("/leave")
 
@@ -154,6 +156,7 @@ class Client:
 
     def get_channel_by_name(self, name: str) -> Channel:
         for channel in self.channels:
+            print(f"{channel.name} == {name.strip('#')}")
             if channel.name == name.strip("#"): return channel
 
     def get_channels(self) -> List[Channel]:
@@ -190,10 +193,14 @@ class Client:
         return SyncData.from_json(sync_data, sync_servers)
                 
     def get_history(self, channel: Channel) -> List[Message]:
-        orig_channel = self.current_channel
-        self.join(channel)
+        if self.current_channel.uuid != channel.uuid:
+            orig_channel = self.current_channel
+            self.join(channel)
+
         packet = self.__block_on("/history 100", "history")
-        self.join(orig_channel)
+
+        if self.current_channel.uuid != channel.uuid:
+            self.join(orig_channel)
 
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
 
