@@ -70,9 +70,14 @@ class Client:
         self.running = True
         self.initialised = False
 
+        self.packet_callbacks = {}
+
     def event(self, fn: Callable):
         setattr(self, fn.__name__, fn)
         return fn
+
+    def on_packet(self, packet_name: str, callback: Callable, once=True):
+        self.packet_callbacks[packet_name] = (callback, once)
         
     def __handle_packet(self, packet: str):
         # todo handle json decoding error
@@ -82,6 +87,7 @@ class Client:
         if self.on_packet is not None:
             self.on_packet(packet)
 
+
         if self.waiting_for is not None and packet.get("command") == self.waiting_for:
             with self.data_lock:
                 self.waiting_data = packet
@@ -89,16 +95,23 @@ class Client:
                 self.data_lock.notify()
         
         if packet.get("command", None) is not None:
-            if packet["command"] == "content":
+            cmd = packet["command"]
+            if cmd in self.packet_callbacks:
+                cb = self.packet_callbacks[cmd]
+                cb[0](packet) #call callback
+                if cb[1]: #if only once, then remove callback from list
+                    self.packet_callbacks.pop(cmd)
+                    
+            if cmd == "content":
                 if self.on_message is not None:
                     self.on_message(Message(packet["content"], self.peers[packet["author_uuid"]], self.current_channel, packet["date"]))
             
-            elif packet["command"] == "set":
+            elif cmd == "set":
                 if packet["key"] == "self_uuid":
                     debug("Your UUID =", packet["value"])
                     self.self_uuid = packet["value"]
 
-            elif packet["command"] == "metadata":
+            elif cmd == "metadata":
                 for elem in packet["data"]:
                     elem_uuid = elem["uuid"]
                     if elem_uuid in self.peers:
@@ -106,18 +119,18 @@ class Client:
                     else:
                         self.peers[elem_uuid] = User.from_json(elem)
 
-            elif packet["command"] == "get_channels":
+            elif cmd == "get_channels":
                 for elem in packet["data"]:
                     self.__add_channel(elem)
                 if self.current_channel is None:
                     self.join(self.channels[0])
 
-            elif packet["command"] == "get_name":
+            elif cmd == "get_name":
                 self.name = packet["data"]
-            elif packet["command"] == "get_icon":
+            elif cmd == "get_icon":
                 self.pfp_b64 = packet["data"]
 
-            elif packet["command"] == "history":
+            elif cmd == "history":
                 pass #should already have been handled, if it needs to be
 
             else:
@@ -138,7 +151,8 @@ class Client:
     def disconnect(self):
         #same with this
         self.running = False
-        self.send("/leave")
+        if self.ssock is not None:
+            self.send("/leave")
 
     def get_pfp(self, uuid: int) -> str:
         if uuid in self.peers:

@@ -1,13 +1,11 @@
 Metadata-Version: 2.1
 Name: asterpy
-Version: 0.0.2
+Version: 0.0.3
 Summary: A simple Python wrapper around the Aster protocol, inspired by the syntax of discord.py
 Home-page: https://github.com/Jachdich/asterpy
 Author: James Kitching
 Author-email: jamesedkitching@gmail.com
-License: UNKNOWN
 Project-URL: Bug Tracker, https://github.com/Jachdich/asterpy/issues
-Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -20,5 +18,3 @@ License-File: LICENSE
 Aster.py is a python implementation of the [Aster](https://github.com/Jachdich/aster-server) protocol, designed for use in bots or custom clients. The syntax is heavily inspired by [discord.py](https://github.com/Rapptz/discord.py).
 
 Currently a work in progress, does not support all of the features of Aster.
-
-

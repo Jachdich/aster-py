@@ -4,7 +4,9 @@ pyproject.toml
 setup.cfg
 src/asterpy/__init__.py
 src/asterpy/channel.py
+src/asterpy/emoji.py
 src/asterpy/message.py
+src/asterpy/sync.py
 src/asterpy/user.py
 src/asterpy.egg-info/PKG-INFO
 src/asterpy.egg-info/SOURCES.txt

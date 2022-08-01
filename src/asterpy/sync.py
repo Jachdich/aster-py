@@ -1,5 +1,6 @@
 class SyncServer:
-    def __init__(self, ip, port, name, pfp, uuid):
+    def __init__(self, ip: str, port: int, name: str, pfp: str, uuid: int):
+        #TODO figure out if these types are correct
         self.ip = ip
         self.port = port
         self.uname = uname
@@ -16,7 +17,7 @@ class SyncServer:
         )
 
 class SyncData:
-    def __init__(self, uname, pfp, servers):
+    def __init__(self, uname: str, pfp: str, servers: list[SyncServer]):
         self.uname = uname
         self.pfp = pfp
         self.servers = servers
