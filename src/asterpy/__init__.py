@@ -83,7 +83,6 @@ class Client:
         # todo handle json decoding error
         if packet == "Goodbye": return
         packet = json.loads(packet)
-        debug(f"Got packet {packet}")
         if self.on_packet is not None:
             self.on_packet(packet)
 
@@ -134,7 +133,7 @@ class Client:
                 pass #should already have been handled, if it needs to be
 
             else:
-                debug("Got weird command", packet)
+                debug("Unknown command '" + cmd + "'")
 
         if not self.initialised:
             if self.self_uuid != 0 and self.name != "" and self.pfp_b64 != "" and len(self.channels) > 0 and self.current_channel is not None:

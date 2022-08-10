@@ -17,7 +17,7 @@ class SyncServer:
         )
 
 class SyncData:
-    def __init__(self, uname: str, pfp: str, servers: list[SyncServer]):
+    def __init__(self, uname: str, pfp: str, servers):#: List[SyncServer]):
         self.uname = uname
         self.pfp = pfp
         self.servers = servers
