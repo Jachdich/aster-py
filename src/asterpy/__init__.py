@@ -11,6 +11,7 @@ from .channel import Channel
 from .message import Message
 from .sync import SyncData, SyncServer
 from .emoji import Emoji
+from .packets import *
 
 DEBUG = True
 
@@ -55,7 +56,6 @@ class Client:
         self.on_packet = None
         self.ssock = None
         self.self_uuid = 0
-        self.current_channel = None
         self.channels = []
         self.name = ""
         self.pfp_b64 = ""
@@ -81,7 +81,6 @@ class Client:
         
     def __handle_packet(self, packet: str):
         # todo handle json decoding error
-        if packet == "Goodbye": return
         packet = json.loads(packet)
         if self.on_packet is not None:
             self.on_packet(packet)
@@ -104,11 +103,6 @@ class Client:
             if cmd == "content":
                 if self.on_message is not None:
                     self.on_message(Message(packet["content"], self.peers[packet["author_uuid"]], self.current_channel, packet["date"]))
-            
-            elif cmd == "set":
-                if packet["key"] == "self_uuid":
-                    debug("Your UUID =", packet["value"])
-                    self.self_uuid = packet["value"]
 
             elif cmd == "metadata":
                 for elem in packet["data"]:
@@ -143,15 +137,15 @@ class Client:
 
             #if self.self_uuid += 
 
-    def send(self, message: str):
+    def send(self, message: Packet):
         #TODO if not connected, raise proper error
-        self.ssock.send((message + "\n").encode("utf-8"))
+        self.ssock.send((str(packet) + "\n").encode("utf-8"))
 
     def disconnect(self):
         #same with this
         self.running = False
         if self.ssock is not None:
-            self.send("/leave")
+            self.send(LeavePacket())
 
     def get_pfp(self, uuid: int) -> str:
         if uuid in self.peers:
