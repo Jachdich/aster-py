@@ -1,5 +1,5 @@
 import src.asterpy as asterpy
-client = asterpy.Client("127.0.0.1", 2345, "jamsbot", "", 1284344576730345505, login=False)
+client = asterpy.Client("127.0.0.1", 2345, "jamsbot", "", 1284344576730345505)
 
 @client.event
 def on_message(message):
@@ -12,7 +12,7 @@ def on_packet(packet):
 @client.event
 def on_ready():
     print("Ready!")
-    client.send("{\"command\": \"ping\"}")
+    client.send({"command": "ping"})
 
 
 client.run()

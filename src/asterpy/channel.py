@@ -1,5 +1,3 @@
-from packets import ContentPacket
-
 class Channel:
     """a channel. Shut up pylint"""
     def __init__(self, client, name, uuid):
@@ -8,7 +6,7 @@ class Channel:
         self.uuid = uuid
 
     def send(self, message: str):        
-        self.client.send(ContentPacket(message, self))
+        self.client.send({"command": "content", "content": message, "channel": self.uuid})
 
     def to_json(self):
         return {"name": self.name, "uuid": self.uuid}

@@ -15,6 +15,9 @@ from .packets import *
 
 DEBUG = True
 
+class AsterError(Exception):
+    pass
+
 def debug(*args):
     if DEBUG:
         print(*args)
@@ -76,7 +79,7 @@ class Client:
         setattr(self, fn.__name__, fn)
         return fn
 
-    def on_packet(self, packet_name: str, callback: Callable, once=True):
+    def call_on_packet(self, packet_name: str, callback: Callable, once=True):
         self.packet_callbacks[packet_name] = (callback, once)
         
     def __handle_packet(self, packet: str):
@@ -84,7 +87,6 @@ class Client:
         packet = json.loads(packet)
         if self.on_packet is not None:
             self.on_packet(packet)
-
 
         if self.waiting_for is not None and packet.get("command") == self.waiting_for:
             with self.data_lock:
@@ -94,12 +96,17 @@ class Client:
         
         if packet.get("command", None) is not None:
             cmd = packet["command"]
+
             if cmd in self.packet_callbacks:
                 cb = self.packet_callbacks[cmd]
                 cb[0](packet) #call callback
                 if cb[1]: #if only once, then remove callback from list
                     self.packet_callbacks.pop(cmd)
-                    
+
+            if packet.get("status") != 200:
+                print(f"Packet '{cmd}' failed with code {packet.get('status')}")
+                return
+
             if cmd == "content":
                 if self.on_message is not None:
                     self.on_message(Message(packet["content"], self.peers[packet["author_uuid"]], self.current_channel, packet["date"]))
@@ -123,12 +130,6 @@ class Client:
             elif cmd == "get_icon":
                 self.pfp_b64 = packet["data"]
 
-            elif cmd == "history":
-                pass #should already have been handled, if it needs to be
-
-            else:
-                debug("Unknown command '" + cmd + "'")
-
         if not self.initialised:
             if self.self_uuid != 0 and self.name != "" and self.pfp_b64 != "" and len(self.channels) > 0 and self.current_channel is not None:
                 self.initialised = True
@@ -139,13 +140,15 @@ class Client:
 
     def send(self, message: Packet):
         #TODO if not connected, raise proper error
-        self.ssock.send((str(packet) + "\n").encode("utf-8"))
+        if self.ssock is None:
+            raise AsterError("Not connected")
+        self.ssock.send((json.dumps(packet) + "\n").encode("utf-8"))
 
     def disconnect(self):
         #same with this
         self.running = False
         if self.ssock is not None:
-            self.send(LeavePacket())
+            self.send({"command": "leave"})
 
     def get_pfp(self, uuid: int) -> str:
         if uuid in self.peers:
@@ -163,7 +166,6 @@ class Client:
 
     def get_channel_by_name(self, name: str) -> Channel:
         for channel in self.channels:
-            print(f"{channel.name} == {name.strip('#')}")
             if channel.name == name.strip("#"): return channel
 
     def get_channels(self) -> List[Channel]:
@@ -172,17 +174,11 @@ class Client:
     def __add_channel(self, data: Dict[str, Any]):
         self.channels.append(Channel(self, data["name"], data["uuid"]))
 
-    def join(self, channel: Channel):
-        if self.current_channel == channel:
-            return
-        self.send("/join " + channel.name)
-        self.current_channel = channel
-
-    def __block_on(self, command: str, req_id: str):
+    def __block_on(self, command: dict):
         if self.waiting_for is not None:
             raise RuntimeWarning(f"Attempt to __block_on while already waiting for '{self.waiting_for}'!")
             return
-        self.waiting_for = req_id
+        self.waiting_for = command["command"]
         with self.data_lock:
             self.send(command)
             while self.waiting_data is None:
@@ -195,31 +191,23 @@ class Client:
         return packet
         
     def get_sync(self) -> SyncData:
-        sync_data = self.__block_on("/sync_get", "sync_get")
-        sync_servers = self.__block_on("/sync_get_servers", "sync_get_servers")
+        sync_data = self.__block_on({"command": "sync_get"})
+        sync_servers = self.__block_on({"command": "sync_get_servers"})
         return SyncData.from_json(sync_data, sync_servers)
                 
     def get_history(self, channel: Channel) -> List[Message]:
-        if self.current_channel.uuid != channel.uuid:
-            orig_channel = self.current_channel
-            self.join(channel)
-
-        packet = self.__block_on("/history 100", "history")
-
-        if self.current_channel.uuid != channel.uuid:
-            self.join(orig_channel)
+        packet = self.__block_on({"command": "history", "num": 100, "channel": channel.uuid})
 
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
 
-    def fetch_emoji(self, uuid: int) -> Emoji:
-        data = self.__block_on(f"/get_emoji {uuid}", "get_emoji")
+    def fetch_emoji(self, uid: int) -> Emoji:
+        data = self.__block_on({"command": "get_emoji", "uid": uid})
         if data["code"] == 0:
             return Emoji.from_json(data["data"])
-        else:
-            raise RuntimeError(f"Get emoji from {self.ip}:{self.port} returned code {data['code']}: {data['message']}")
+        raise AsterError(f"Get emoji from {self.ip}:{self.port} returned code {data['code']}")
 
     def list_emojis(self) -> List[Tuple[int, str]]:
-        data = self.__block_on("/list_emoji", "list_emoji")
+        data = self.__block_on({"command": "list_emoji"})
         return [(n["uuid"], n["name"]) for n in data["data"]]
 
     def run(self):
@@ -231,11 +219,15 @@ class Client:
 
                 if self.login:
                     if self.uuid is None:
-                        ssock.send((f"/login_username {self.username}\n").encode("utf-8"))
+                        self.send({"command": "login", "username": self.username, "password": self.password})
                     else:
-                        ssock.send((f"/login {self.uuid}\n").encode("utf-8"))
+                        ssock.send({"command": "login", "uuid": self.uuid, "password": self.password})
 
-                    ssock.send("/get_all_metadata\n/get_channels\n/online\n/get_name\n/get_icon\n".encode("utf-8"))
+                    self.send({"command": "get_all_metadata"})
+                    self.send({"command": "get_channels"})
+                    self.send({"command": "online"})
+                    self.send({"command": "get_name"})
+                    self.send({"command": "get_icon"})
                 else:
                     if self.on_ready is not None:
                         threading.Thread(target=self.on_ready).start()
