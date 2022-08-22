@@ -11,7 +11,6 @@ from .channel import Channel
 from .message import Message
 from .sync import SyncData, SyncServer
 from .emoji import Emoji
-from .packets import *
 
 DEBUG = True
 
@@ -84,7 +83,12 @@ class Client:
         
     def __handle_packet(self, packet: str):
         # todo handle json decoding error
-        packet = json.loads(packet)
+        # todo UPDATE: PROPERLY handle it
+        try:
+            packet = json.loads(packet)
+        except:
+            print(f"Unable to decode packet '{packet}'")
+            return
         if self.on_packet is not None:
             self.on_packet(packet)
 
@@ -119,7 +123,7 @@ class Client:
                     else:
                         self.peers[elem_uuid] = User.from_json(elem)
 
-            elif cmd == "get_channels":
+            elif cmd == "list_channels":
                 for elem in packet["data"]:
                     self.__add_channel(elem)
                 if self.current_channel is None:
@@ -138,11 +142,12 @@ class Client:
 
             #if self.self_uuid += 
 
-    def send(self, message: Packet):
+    def send(self, message: dict[any]):
         #TODO if not connected, raise proper error
         if self.ssock is None:
             raise AsterError("Not connected")
-        self.ssock.send((json.dumps(packet) + "\n").encode("utf-8"))
+        print((json.dumps(message) + "\n").encode("utf-8"))
+        self.ssock.send((json.dumps(message) + "\n").encode("utf-8"))
 
     def disconnect(self):
         #same with this
@@ -219,12 +224,12 @@ class Client:
 
                 if self.login:
                     if self.uuid is None:
-                        self.send({"command": "login", "username": self.username, "password": self.password})
+                        self.send({"command": "login", "uname": self.username, "passwd": self.password})
                     else:
-                        ssock.send({"command": "login", "uuid": self.uuid, "password": self.password})
+                        ssock.send({"command": "login", "uuid": self.uuid, "passwd": self.password})
 
-                    self.send({"command": "get_all_metadata"})
-                    self.send({"command": "get_channels"})
+                    self.send({"command": "get_metadata"})
+                    self.send({"command": "list_channels"})
                     self.send({"command": "online"})
                     self.send({"command": "get_name"})
                     self.send({"command": "get_icon"})
