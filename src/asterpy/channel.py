@@ -6,7 +6,7 @@ class Channel:
         self.uuid = uuid
 
     def send(self, message: str):        
-        self.client.send({"command": "content", "content": message, "channel": self.uuid})
+        self.client.send({"command": "send", "content": message, "channel": self.uuid})
 
     def to_json(self):
         return {"name": self.name, "uuid": self.uuid}

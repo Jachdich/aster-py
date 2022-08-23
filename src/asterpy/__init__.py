@@ -84,6 +84,7 @@ class Client:
     def __handle_packet(self, packet: str):
         # todo handle json decoding error
         # todo UPDATE: PROPERLY handle it
+        print(packet)
         try:
             packet = json.loads(packet)
         except:
@@ -91,6 +92,8 @@ class Client:
             return
         if self.on_packet is not None:
             self.on_packet(packet)
+
+        print(f"command is {packet.get('command')}")
 
         if self.waiting_for is not None and packet.get("command") == self.waiting_for:
             with self.data_lock:
@@ -112,8 +115,17 @@ class Client:
                 return
 
             if cmd == "content":
+                print(packet)
                 if self.on_message is not None:
-                    self.on_message(Message(packet["content"], self.peers[packet["author_uuid"]], self.current_channel, packet["date"]))
+                    self.on_message(Message(
+                        packet["content"],
+                        self.peers[packet["author_uuid"]],
+                        packet["channel_uuid"],
+                        packet["date"]
+                    ))
+
+            elif cmd == "login" or cmd == "register":
+                self.self_uuid = packet["uuid"]
 
             elif cmd == "metadata":
                 for elem in packet["data"]:
@@ -126,8 +138,6 @@ class Client:
             elif cmd == "list_channels":
                 for elem in packet["data"]:
                     self.__add_channel(elem)
-                if self.current_channel is None:
-                    self.join(self.channels[0])
 
             elif cmd == "get_name":
                 self.name = packet["data"]
@@ -135,7 +145,7 @@ class Client:
                 self.pfp_b64 = packet["data"]
 
         if not self.initialised:
-            if self.self_uuid != 0 and self.name != "" and self.pfp_b64 != "" and len(self.channels) > 0 and self.current_channel is not None:
+            if self.self_uuid != 0 and self.name != "" and self.pfp_b64 != "" and len(self.channels) > 0:
                 self.initialised = True
                 if self.on_ready != None:
                     threading.Thread(target=self.on_ready).start() #TODO weird workaround, make it better
@@ -202,7 +212,6 @@ class Client:
                 
     def get_history(self, channel: Channel) -> List[Message]:
         packet = self.__block_on({"command": "history", "num": 100, "channel": channel.uuid})
-
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
 
     def fetch_emoji(self, uid: int) -> Emoji:
