@@ -47,7 +47,7 @@ def fetch_emoji(emoji):
 
 class Client:
     """Represents a client connection to one server"""
-    def __init__(self, ip: str, port: int, username: str, password: str, uuid=None, login=True):
+    def __init__(self, ip: str, port: int, username: str, password: str, uuid=None, login=True, register=False):
         self.ip = ip
         self.port = port
         self.username = username
@@ -62,6 +62,7 @@ class Client:
         self.name = ""
         self.pfp_b64 = ""
         self.login = login
+        self.register = register
 
         #TODO this is terrible, make it better
         self.waiting_for = None
@@ -235,16 +236,25 @@ class Client:
                     if self.uuid is None:
                         self.send({"command": "login", "uname": self.username, "passwd": self.password})
                     else:
-                        ssock.send({"command": "login", "uuid": self.uuid, "passwd": self.password})
+                        self.send({"command": "login", "uuid": self.uuid, "passwd": self.password})
 
+                    # todo: check login status before sending further commands?
                     self.send({"command": "get_metadata"})
                     self.send({"command": "list_channels"})
                     self.send({"command": "online"})
                     self.send({"command": "get_name"})
                     self.send({"command": "get_icon"})
-                else:
-                    if self.on_ready is not None:
-                        threading.Thread(target=self.on_ready).start()
+                
+                if self.register:
+                    self.send({"command": "register", "name": self.username, "passwd": self.password})
+
+                    # todo: check register status before sending further commands?
+                    self.send({"command": "get_metadata"})
+                    self.send({"command": "list_channels"})
+                    self.send({"command": "online"})
+                    self.send({"command": "get_name"})
+                    self.send({"command": "get_icon"})
+
                 total_data = b""
                 while self.running:
                     recvd_packet = ssock.recv(1024)
