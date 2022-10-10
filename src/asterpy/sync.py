@@ -3,7 +3,7 @@ class SyncServer:
         #TODO figure out if these types are correct
         self.ip = ip
         self.port = port
-        self.uname = uname
+        self.uname = name
         self.pfp = pfp
         self.uuid = uuid
 
@@ -13,7 +13,7 @@ class SyncServer:
             value["port"],
             value.get("name", ""),
             value.get("pfp", ""),
-            value["uuid"]
+            value["user_uuid"]
         )
 
 class SyncData:
@@ -26,5 +26,5 @@ class SyncData:
         return SyncData(
             value["uname"],
             value["pfp"],
-            [SyncServer.from_json(val) for val in servers["data"]]
+            [SyncServer.from_json(val) for val in servers["servers"]]
         )

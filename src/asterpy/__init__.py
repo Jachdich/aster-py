@@ -225,7 +225,7 @@ class Client:
         data = self.__block_on({"command": "list_emoji"})
         return [(n["uuid"], n["name"]) for n in data["data"]]
 
-    def run(self):
+    def run(self, init_commands=None):
         context = ssl.SSLContext()
         with socket.create_connection((self.ip, self.port)) as sock:
             with context.wrap_socket(sock, server_hostname=self.ip) as ssock:
@@ -254,6 +254,10 @@ class Client:
                     self.send({"command": "online"})
                     self.send({"command": "get_name"})
                     self.send({"command": "get_icon"})
+                
+                if init_commands:
+                    for cmd in init_commands:
+                        self.send(cmd)
 
                 total_data = b""
                 while self.running:
