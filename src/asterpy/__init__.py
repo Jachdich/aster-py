@@ -80,7 +80,9 @@ class Client:
         return fn
 
     def call_on_packet(self, packet_name: str, callback: Callable, once=True):
-        self.packet_callbacks[packet_name] = (callback, once)
+        if not packet_name in self.packet_callbacks:
+            self.packet_callbacks[packet_name] = []
+        self.packet_callbacks[packet_name].append((callback, once))
         
     def __handle_packet(self, packet: str):
         # todo handle json decoding error
@@ -106,10 +108,14 @@ class Client:
             cmd = packet["command"]
 
             if cmd in self.packet_callbacks:
-                cb = self.packet_callbacks[cmd]
-                cb[0](packet) #call callback
-                if cb[1]: #if only once, then remove callback from list
-                    self.packet_callbacks.pop(cmd)
+                to_remove = []
+                for cb in self.packet_callbacks[cmd]:
+                    cb[0](packet) #call callback
+                    if cb[1]: #if only once, then remove callback from list
+                        to_remove.append(cb)
+                
+                for cb in to_remove:
+                    self.packet_callbacks[cmd].remove(cb)
 
             if packet.get("status") != 200:
                 print(f"Packet '{cmd}' failed with code {packet.get('status')}")
