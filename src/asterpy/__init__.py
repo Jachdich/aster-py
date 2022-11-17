@@ -127,7 +127,7 @@ class Client:
                     self.on_message(Message(
                         packet["content"],
                         self.peers[packet["author_uuid"]],
-                        packet["channel_uuid"],
+                        self.get_channel(packet["channel_uuid"]),
                         packet["date"]
                     ))
 
