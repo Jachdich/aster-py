@@ -45,6 +45,21 @@ def fetch_emoji(emoji):
         return None
     return client.username
 
+
+def fetch_pfp(ip, port, uuid):
+    client = Client(ip, port, "", "", login=False)
+    def on_ready():
+        #TODO weird hack
+        client.username = client._fetch_pfp(uuid)
+        client.disconnect()
+    client.on_ready = on_ready
+    try:
+        client.run()
+    except OSError: #connection failed for some reason
+        return None
+    return client.username
+
+
 class Client:
     """Represents a client connection to one server"""
     def __init__(self, ip: str, port: int, username: str, password: str, uuid=None, login=True, register=False):
@@ -227,6 +242,10 @@ class Client:
             return Emoji.from_json(data["data"])
         raise AsterError(f"Get emoji from {self.ip}:{self.port} returned code {data['code']}")
 
+    def _fetch_pfp(self, uuid: int) -> bytes: # TODO naming...
+        data = self.__block_on({"command": "get_user", "uuid": uuid})
+        return User.from_json(data["data"]).pfp
+
     def list_emojis(self) -> List[Tuple[int, str]]:
         data = self.__block_on({"command": "list_emoji"})
         return [(n["uuid"], n["name"]) for n in data["data"]]
@@ -264,6 +283,11 @@ class Client:
                 if init_commands:
                     for cmd in init_commands:
                         self.send(cmd)
+
+                if not self.register and not self.login:
+                    self.initialised = True
+                    if self.on_ready is not None:
+                        threading.Thread(target=self.on_ready).start() #TODO weird workaround, make it better
 
                 total_data = b""
                 while self.running:
