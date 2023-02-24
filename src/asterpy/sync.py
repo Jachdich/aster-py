@@ -1,3 +1,5 @@
+from typing import List
+
 class SyncServer:
     def __init__(self, ip: str, port: int, name: str, pfp: str, uuid: int):
         #TODO figure out if these types are correct
@@ -17,14 +19,18 @@ class SyncServer:
         )
 
 class SyncData:
-    def __init__(self, uname: str, pfp: str, servers):#: List[SyncServer]):
+    def __init__(self, uname: str, pfp: str, servers: list[SyncServer]):
         self.uname = uname
         self.pfp = pfp
         self.servers = servers
 
     def from_json(value, servers):
-        return SyncData(
-            value["uname"],
-            value["pfp"],
-            [SyncServer.from_json(val) for val in servers["servers"]]
-        )
+        if value["status"] == 200:
+            return SyncData(
+                value["uname"],
+                value["pfp"],
+                [SyncServer.from_json(val) for val in servers["servers"]]
+            )
+        elif value["status"] == 404:
+            # no sync data
+            return None

@@ -1,12 +1,22 @@
 class Channel:
-    """a channel. Shut up pylint"""
-    def __init__(self, client, name, uuid):
+    """
+    Represents an aster channel.
+    """
+    def __init__(self, client, name: str, uid: int):
         self.client = client
         self.name = name
-        self.uuid = uuid
+        self.uid = uid
 
-    def send(self, message: str):        
-        self.client.send({"command": "send", "content": message, "channel": self.uuid})
+    def send(self, message: str):
+        """
+        Send a text message to the channel.
 
-    def to_json(self):
-        return {"name": self.name, "uuid": self.uuid}
+        :param message: The text to be sent
+        """
+        self.client.send({"command": "send", "content": message, "channel": self.uid})
+
+    def to_json(self) -> dict:
+        """
+        Convert the channel to a json-representable dictionary.
+        """
+        return {"name": self.name, "uuid": self.uid}

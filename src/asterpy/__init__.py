@@ -63,6 +63,10 @@ def fetch_pfp(ip, port, uuid):
 class Client:
     """Represents a client connection to one server"""
     def __init__(self, ip: str, port: int, username: str, password: str, uuid=None, login=True, register=False):
+        """
+        :param ip: The IP address to connect to
+        
+        """
         self.ip = ip
         self.port = port
         self.username = username
@@ -91,10 +95,24 @@ class Client:
         self.packet_callbacks = {}
 
     def event(self, fn: Callable):
+        """
+        Register an event handler with the client. Possible event handlers are:
+            - on_message: Called when any message is received in any channel. ``fn`` must take one argument of type :doc:`Message`
+            - on_packet: Called when any packet of any kind is received. ``fn`` must take one argument of type ``dict``
+            - on_ready: Called when the client is finished initialising. ``fn`` must take no arguments.
+        """
         setattr(self, fn.__name__, fn)
         return fn
 
     def call_on_packet(self, packet_name: str, callback: Callable, once=True):
+        """
+        Set up a callback (any function or lambda) to be called when a packet with name ``packet_name`` is received.
+        
+        :param packet_name: Type of packet to listen for
+        :param callback: The callback function to use
+        :param once: Whether to remove the callback after the first call
+        
+        """
         if not packet_name in self.packet_callbacks:
             self.packet_callbacks[packet_name] = []
         self.packet_callbacks[packet_name].append((callback, once))
@@ -175,6 +193,11 @@ class Client:
             #if self.self_uuid += 
 
     def send(self, message: dict[any]):
+        """
+        Send a packet to the server.
+
+        :param message: The packet to send, as a dictionary.
+        """
         #TODO if not connected, raise proper error
         if self.ssock is None:
             raise AsterError("Not connected")
@@ -182,30 +205,61 @@ class Client:
         self.ssock.send((json.dumps(message) + "\n").encode("utf-8"))
 
     def disconnect(self):
+        """
+        Disconnect from the server.
+        """
         #same with this
         self.running = False
         if self.ssock is not None:
             self.send({"command": "leave"})
 
-    def get_pfp(self, uuid: int) -> str:
+    def get_pfp(self, uuid: int) -> Optional[bytes]:
+        """
+        Get the profile picture for the user with the corrosponding UUID. This uses cached data.
+
+        :param uuid: The UUID of the user to fetch the profile picture from.
+        :returns: PNG-compressed image data, or ``None`` if the user doesn't exist.
+        """
         if uuid in self.peers:
             return self.peers[uuid].pfp
 
-    def get_name(self, uuid: int) -> str:
+    def get_name(self, uuid: int) -> Optional[str]:
+        """
+        Get the username of the user identified by the given UUID.
+
+        :param uuid: The UUID of the user to get the name of.
+        :returns: The name of the user, or ``None`` if the user doesn't exist.
+        """
         if uuid == self.self_uuid:
             return self.username
         if uuid in self.peers:
             return self.peers[uuid].username
 
-    def get_channel(self, uuid: int) -> Channel:
-        for channel in self.channels:
-            if channel.uuid == uuid: return channel
+    def get_channel(self, uid: int) -> Optional[Channel]:
+        """
+        Get the :doc:`Channel` object associated with the given ID.
 
-    def get_channel_by_name(self, name: str) -> Channel:
+        :param uid: The ID of the channel.
+        :returns: The channel, or ``None`` if it doesn't exist
+        """
         for channel in self.channels:
-            if channel.name == name.strip("#"): return channel
+            if channel.uid == uid: return channel
 
-    def get_channels(self) -> List[Channel]:
+    def get_channel_by_name(self, name: str) -> Optional[Channel]:
+        """
+        Get the :doc:`Channel` object by referring to its name. Generally, prefer using the ID to reference channels rather than the name if possible.
+
+        :param name: The name of the channel.
+        :returns: The channel, or ``None`` if it doesn't exist.
+        """
+        for channel in self.channels:
+            if channel.name == name.strip("#"):
+                return channel
+
+    def list_channels(self) -> List[Channel]:
+        """
+        :returns: A list of all the channels in the current server.
+        """
         return self.channels
 
     def __add_channel(self, data: Dict[str, Any]):
@@ -227,16 +281,28 @@ class Client:
 
         return packet
         
-    def get_sync(self) -> SyncData:
+    def fetch_sync(self) -> Optional[SyncData]:
+        """
+        Fetch the :doc:`SyncData` from the server.
+
+        :returns: The :doc:`SyncData` object, or ``None`` if the server has no sync data.SyncData
+        """
         sync_data = self.__block_on({"command": "sync_get"})
         sync_servers = self.__block_on({"command": "sync_get_servers"})
         return SyncData.from_json(sync_data, sync_servers)
                 
-    def get_history(self, channel: Channel) -> List[Message]:
+    def fetch_history(self, channel: Channel) -> List[Message]:
+        """
+        Fetch the last 100 messages from a given channel.
+
+        :param channel: The channel from which to fetch the messages.
+        :returns: A list of messages.
+        """
         packet = self.__block_on({"command": "history", "num": 100, "channel": channel.uuid})
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
 
     def fetch_emoji(self, uid: int) -> Emoji:
+        
         data = self.__block_on({"command": "get_emoji", "uid": uid})
         if data["code"] == 0:
             return Emoji.from_json(data["data"])
@@ -246,9 +312,9 @@ class Client:
         data = self.__block_on({"command": "get_user", "uuid": uuid})
         return User.from_json(data["data"]).pfp
 
-    def list_emojis(self) -> List[Tuple[int, str]]:
+    def list_emojis(self) -> List[Emoji]:
         data = self.__block_on({"command": "list_emoji"})
-        return [(n["uuid"], n["name"]) for n in data["data"]]
+        return [Emoji.from_json(n) for n in data["data"]]
 
     def run(self, init_commands=None):
         context = ssl.SSLContext()
