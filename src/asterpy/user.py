@@ -1,14 +1,15 @@
 from base64 import b64decode
+from typing import Optional
 
 class User:
     """Represents a user on the aster server"""
-    def __init__(self, uuid: int, username: str, pfp: bytes = None):
+    def __init__(self, uuid: int, username: str, pfp: Optional[bytes]=None):
         self.uuid = uuid
         self.username = username
+        #: PNG-compressed image data
         self.pfp = pfp
 
     def from_json(json):
-        """Construct a User object from a python dictionary"""
         pfp_b64 = json.get("pfp", None)
         pfp = None
         if pfp_b64 is not None:
@@ -16,7 +17,6 @@ class User:
         return User(json["uuid"], json["name"], pfp)
 
     def update_from_json(self, json):
-        """Update the current User from a python dictionary"""
         pfp_b64 = json.get("pfp", None)
         pfp = None
         if pfp_b64 is not None:

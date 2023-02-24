@@ -15,17 +15,19 @@ Classes
 
 	.. automethod:: __init__
 	.. automethod:: call_on_packet
+	.. automethod:: disconnect
 	.. autodecorator:: asterpy.Client.event
-	.. automethod:: get_pfp
-	.. automethod:: get_name
+	.. automethod:: fetch_emoji
+	.. automethod:: fetch_history
+	.. automethod:: fetch_sync
 	.. automethod:: get_channel
 	.. automethod:: get_channel_by_name
+	.. automethod:: get_name
+	.. automethod:: get_pfp
 	.. automethod:: list_channels
-	.. automethod:: fetch_sync
-	.. automethod:: fetch_history
-	.. automethod:: fetch_emoji
 	.. automethod:: list_emojis
 	.. automethod:: run
+	.. automethod:: send
 
 
 ----
@@ -40,11 +42,53 @@ Classes
 
 ----
 
+.. autoclass:: User
+
+	.. rubric:: Attributes
+	.. autoattribute:: uuid
+	.. autoattribute:: username
+	.. autoattribute:: pfp
+
+----
+
+.. autoclass:: Message
+
+	.. rubric:: Attributes
+	.. autoattribute:: content
+	.. autoattribute:: author
+	.. autoattribute:: channel
+	.. autoattribute:: date
+
+----
+
 .. autoclass:: Emoji
 
 	.. rubric:: Attributes
+	.. autoattribute:: data
 	.. autoattribute:: name
 	.. autoattribute:: uid
+
+----
+
+.. autoclass:: SyncServer
+	
+	.. rubric:: Attributes
+	.. autoattribute:: ip
+	.. autoattribute:: port
+	.. autoattribute:: pfp
+	.. autoattribute:: name
+	.. autoattribute:: uuid
 	.. rubric:: Methods
 	.. automethod:: from_json
+	
+----
 
+.. autoclass:: SyncData
+
+	.. rubric:: Attributes
+	.. autoattribute:: uname
+	.. autoattribute:: pfp
+	.. autoattribute:: servers
+	
+	.. rubric:: Methods
+	.. automethod:: from_json

@@ -16,7 +16,4 @@ class Channel:
         self.client.send({"command": "send", "content": message, "channel": self.uid})
 
     def to_json(self) -> dict:
-        """
-        Convert the channel to a json-representable dictionary.
-        """
         return {"name": self.name, "uuid": self.uid}

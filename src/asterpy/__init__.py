@@ -97,7 +97,7 @@ class Client:
     def event(self, fn: Callable):
         """
         Register an event handler with the client. Possible event handlers are:
-            - on_message: Called when any message is received in any channel. ``fn`` must take one argument of type :doc:`Message`
+            - on_message: Called when any message is received in any channel. ``fn`` must take one argument of type :py:class:`Message`
             - on_packet: Called when any packet of any kind is received. ``fn`` must take one argument of type ``dict``
             - on_ready: Called when the client is finished initialising. ``fn`` must take no arguments.
         """
@@ -237,7 +237,7 @@ class Client:
 
     def get_channel(self, uid: int) -> Optional[Channel]:
         """
-        Get the :doc:`Channel` object associated with the given ID.
+        Get the :py:class:`Channel` object associated with the given ID.
 
         :param uid: The ID of the channel.
         :returns: The channel, or ``None`` if it doesn't exist
@@ -247,7 +247,7 @@ class Client:
 
     def get_channel_by_name(self, name: str) -> Optional[Channel]:
         """
-        Get the :doc:`Channel` object by referring to its name. Generally, prefer using the ID to reference channels rather than the name if possible.
+        Get the :py:class:`Channel` object by referring to its name. Generally, prefer using the ID to reference channels rather than the name if possible.
 
         :param name: The name of the channel.
         :returns: The channel, or ``None`` if it doesn't exist.
@@ -283,9 +283,9 @@ class Client:
         
     def fetch_sync(self) -> Optional[SyncData]:
         """
-        Fetch the :doc:`SyncData` from the server.
+        Fetch the :py:class:`SyncData` from the server.
 
-        :returns: The :doc:`SyncData` object, or ``None`` if the server has no sync data.SyncData
+        :returns: The :py:class:`SyncData` object, or ``None`` if the server has no sync data.
         """
         sync_data = self.__block_on({"command": "sync_get"})
         sync_servers = self.__block_on({"command": "sync_get_servers"})
@@ -302,7 +302,9 @@ class Client:
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
 
     def fetch_emoji(self, uid: int) -> Emoji:
-        
+        """
+        :param uid: ID of the emoji to fetch.
+        """
         data = self.__block_on({"command": "get_emoji", "uid": uid})
         if data["code"] == 0:
             return Emoji.from_json(data["data"])
@@ -313,10 +315,18 @@ class Client:
         return User.from_json(data["data"]).pfp
 
     def list_emojis(self) -> List[Emoji]:
+        """
+        Fetch a list of custom emojis from the server.
+        """
         data = self.__block_on({"command": "list_emoji"})
         return [Emoji.from_json(n) for n in data["data"]]
 
-    def run(self, init_commands=None):
+    def run(self, init_commands: Optional[List[dict]]=None):
+        """
+        Connect to the server and listen for packets. This function blocks until :py:meth:`Client.disconnect` is called.
+
+        :param init_commands: Optional list of packets to send to the server after connecting.
+        """
         context = ssl.SSLContext()
         with socket.create_connection((self.ip, self.port)) as sock:
             with context.wrap_socket(sock, server_hostname=self.ip) as ssock:

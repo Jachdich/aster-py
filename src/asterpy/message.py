@@ -7,9 +7,9 @@ class Message:
         self.content = content
         self.author = user
         self.channel = channel
+        #: UNIX timestamp
         self.date = date
 
     def to_json(self):
-        """Convert the Message object to JSON"""
         return {"content": self.content, "author_uuid": self.author.uuid, "date": self.date}
     
