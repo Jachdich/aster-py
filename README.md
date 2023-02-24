@@ -9,7 +9,7 @@ PyPI release can be found [here](https://pypi.org/project/asterpy/)
 
 ## Documentation
 
-See docs.md
+See http://cospox.com/docs/asterpy/
 
 ## Example
 
