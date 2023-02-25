@@ -13,8 +13,14 @@ Classes
 
 .. autoclass:: Client
 
+	.. rubric:: Attributes
+	.. autoattribute:: channels
+	
+	.. rubric:: Methods
+
 	.. automethod:: __init__
 	.. automethod:: call_on_packet
+	.. automethod:: connect
 	.. automethod:: disconnect
 	.. autodecorator:: asterpy.Client.event
 	.. automethod:: fetch_emoji

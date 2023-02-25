@@ -5,6 +5,7 @@ import ssl
 import json
 import threading
 import base64
+import asyncio
 from typing import *
 from .user import User
 from .channel import Channel
@@ -75,7 +76,6 @@ class Client:
         self.on_message = None
         self.on_ready = None
         self.on_packet = None
-        self.ssock = None
         self.self_uuid = 0
         self.channels = []
         self.name = ""
@@ -87,13 +87,15 @@ class Client:
         self.waiting_for = None
         self.waiting_data = None
         self.data_lock = threading.Condition()
+        self.writer = None
 
         self.peers = {}
         self.running = True
         self.initialised = False
 
         self.packet_callbacks = {}
-
+        self.tasks = set() # strong references to "set and forget" tasks like ``on_ready``
+    
     def event(self, fn: Callable):
         """
         Register an event handler with the client. Possible event handlers are:
@@ -117,7 +119,7 @@ class Client:
             self.packet_callbacks[packet_name] = []
         self.packet_callbacks[packet_name].append((callback, once))
         
-    def __handle_packet(self, packet: str):
+    async def __handle_packet(self, packet: str):
         # todo handle json decoding error
         # todo UPDATE: PROPERLY handle it
         print(packet)
@@ -127,7 +129,7 @@ class Client:
             print(f"Unable to decode packet '{packet}'")
             return
         if self.on_packet is not None:
-            self.on_packet(packet)
+            await self.__start_task(self.on_packet(packet))
 
         print(f"command is {packet.get('command')}")
 
@@ -143,7 +145,7 @@ class Client:
             if cmd in self.packet_callbacks:
                 to_remove = []
                 for cb in self.packet_callbacks[cmd]:
-                    cb[0](packet) #call callback
+                    await self.__start_task(cb[0](packet)) #call callback
                     if cb[1]: #if only once, then remove callback from list
                         to_remove.append(cb)
                 
@@ -155,14 +157,14 @@ class Client:
                 return
 
             if cmd == "content":
-                print(packet)
+                # print(packet)
                 if self.on_message is not None:
-                    self.on_message(Message(
+                    await self.__start_task(self.on_message(Message(
                         packet["content"],
                         self.peers[packet["author_uuid"]],
                         self.get_channel(packet["channel_uuid"]),
                         packet["date"]
-                    ))
+                    )))
 
             elif cmd == "login" or cmd == "register":
                 self.self_uuid = packet["uuid"]
@@ -188,30 +190,29 @@ class Client:
             if self.self_uuid != 0 and self.name != "" and self.pfp_b64 != "" and len(self.channels) > 0:
                 self.initialised = True
                 if self.on_ready != None:
-                    threading.Thread(target=self.on_ready).start() #TODO weird workaround, make it better
+                    await self.__start_task(self.on_ready())
 
-            #if self.self_uuid += 
-
-    def send(self, message: dict[any]):
+    async def send(self, message: dict[any]):
         """
         Send a packet to the server.
 
         :param message: The packet to send, as a dictionary.
         """
         #TODO if not connected, raise proper error
-        if self.ssock is None:
+        if self.writer is None:
             raise AsterError("Not connected")
-        print((json.dumps(message) + "\n").encode("utf-8"))
-        self.ssock.send((json.dumps(message) + "\n").encode("utf-8"))
+        # print((json.dumps(message) + "\n").encode("utf-8"))
+        self.writer.write((json.dumps(message) + "\n").encode("utf-8"))
+        await self.writer.drain()
 
-    def disconnect(self):
+    async def disconnect(self):
         """
         Disconnect from the server.
         """
         #same with this
         self.running = False
-        if self.ssock is not None:
-            self.send({"command": "leave"})
+        if self.writer is not None:
+            await self.send({"command": "leave"})
 
     def get_pfp(self, uuid: int) -> Optional[bytes]:
         """
@@ -256,22 +257,16 @@ class Client:
             if channel.name == name.strip("#"):
                 return channel
 
-    def list_channels(self) -> List[Channel]:
-        """
-        :returns: A list of all the channels in the current server.
-        """
-        return self.channels
-
     def __add_channel(self, data: Dict[str, Any]):
         self.channels.append(Channel(self, data["name"], data["uuid"]))
 
-    def __block_on(self, command: dict):
+    async def __block_on(self, command: dict):
         if self.waiting_for is not None:
             raise RuntimeWarning(f"Attempt to __block_on while already waiting for '{self.waiting_for}'!")
             return
         self.waiting_for = command["command"]
         with self.data_lock:
-            self.send(command)
+            await self.send(command)
             while self.waiting_data is None:
                 self.data_lock.wait()
 
@@ -280,97 +275,113 @@ class Client:
         self.waiting_for = None
 
         return packet
+
+    async def __start_task(self, coro: Coroutine):
+        task = asyncio.create_task(coro)
+        self.tasks.add(task)
+        task.add_done_callback(self.tasks.discard)
         
-    def fetch_sync(self) -> Optional[SyncData]:
+    async def fetch_sync(self) -> Optional[SyncData]:
         """
         Fetch the :py:class:`SyncData` from the server.
 
         :returns: The :py:class:`SyncData` object, or ``None`` if the server has no sync data.
         """
-        sync_data = self.__block_on({"command": "sync_get"})
-        sync_servers = self.__block_on({"command": "sync_get_servers"})
+        sync_data = await self.__block_on({"command": "sync_get"})
+        sync_servers = await self.__block_on({"command": "sync_get_servers"})
         return SyncData.from_json(sync_data, sync_servers)
                 
-    def fetch_history(self, channel: Channel) -> List[Message]:
+    async def fetch_history(self, channel: Channel) -> List[Message]:
         """
         Fetch the last 100 messages from a given channel.
 
         :param channel: The channel from which to fetch the messages.
         :returns: A list of messages.
         """
-        packet = self.__block_on({"command": "history", "num": 100, "channel": channel.uuid})
+        packet = await self.__block_on({"command": "history", "num": 100, "channel": channel.uuid})
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
 
-    def fetch_emoji(self, uid: int) -> Emoji:
+    async def fetch_emoji(self, uid: int) -> Emoji:
         """
         :param uid: ID of the emoji to fetch.
         """
-        data = self.__block_on({"command": "get_emoji", "uid": uid})
+        data = await self.__block_on({"command": "get_emoji", "uid": uid})
         if data["code"] == 0:
             return Emoji.from_json(data["data"])
         raise AsterError(f"Get emoji from {self.ip}:{self.port} returned code {data['code']}")
 
-    def _fetch_pfp(self, uuid: int) -> bytes: # TODO naming...
-        data = self.__block_on({"command": "get_user", "uuid": uuid})
+    async def _fetch_pfp(self, uuid: int) -> bytes: # TODO naming...
+        data = await self.__block_on({"command": "get_user", "uuid": uuid})
         return User.from_json(data["data"]).pfp
 
-    def list_emojis(self) -> List[Emoji]:
+    async def list_emojis(self) -> List[Emoji]:
         """
         Fetch a list of custom emojis from the server.
         """
-        data = self.__block_on({"command": "list_emoji"})
+        data = await self.__block_on({"command": "list_emoji"})
         return [Emoji.from_json(n) for n in data["data"]]
 
-    def run(self, init_commands: Optional[List[dict]]=None):
+    async def __send_multiple(self, messages: List[dict]):
+        async with asyncio.TaskGroup() as tg:
+            ts = []
+            for msg in messages:
+                ts.append(tg.create_task(self.send(msg)))
+    
+    async def connect(self, init_commands: Optional[List[dict]]=None):
         """
         Connect to the server and listen for packets. This function blocks until :py:meth:`Client.disconnect` is called.
 
         :param init_commands: Optional list of packets to send to the server after connecting.
         """
         context = ssl.SSLContext()
-        with socket.create_connection((self.ip, self.port)) as sock:
-            with context.wrap_socket(sock, server_hostname=self.ip) as ssock:
-                self.sock = sock
-                self.ssock = ssock
+        reader, writer = await asyncio.open_connection(self.ip, self.port, ssl=context)
+        self.writer = writer
+        try:
+            if self.login:
+                if self.uuid is None:
+                    await self.send({"command": "login", "uname": self.username, "passwd": self.password})
+                else:
+                    await self.send({"command": "login", "uuid": self.uuid, "passwd": self.password})
 
-                if self.login:
-                    if self.uuid is None:
-                        self.send({"command": "login", "uname": self.username, "passwd": self.password})
-                    else:
-                        self.send({"command": "login", "uuid": self.uuid, "passwd": self.password})
+                await reader.readline();
+                # todo: check login status before sending further commands?
+                await self.__send_multiple([
+                    {"command": "get_metadata"},
+                    {"command": "list_channels"},
+                    {"command": "online"},
+                    {"command": "get_name"},
+                    {"command": "get_icon"}])
+            
+            if self.register:
+                await self.send({"command": "register", "name": self.username, "passwd": self.password})
+                await reader.readline();
+                # todo: check register status before sending further commands?
+                await self.__send_multiple([
+                    {"command": "get_metadata"},
+                    {"command": "list_channels"},
+                    {"command": "online"},
+                    {"command": "get_name"},
+                    {"command": "get_icon"},
+                ])
+            
+            if init_commands:
+                await self.__send_multiple(init_commands)
 
-                    # todo: check login status before sending further commands?
-                    self.send({"command": "get_metadata"})
-                    self.send({"command": "list_channels"})
-                    self.send({"command": "online"})
-                    self.send({"command": "get_name"})
-                    self.send({"command": "get_icon"})
-                
-                if self.register:
-                    self.send({"command": "register", "name": self.username, "passwd": self.password})
+            if not self.register and not self.login:
+                self.initialised = True
+                if self.on_ready is not None:
+                    self.__start_task(self.on_ready())
 
-                    # todo: check register status before sending further commands?
-                    self.send({"command": "get_metadata"})
-                    self.send({"command": "list_channels"})
-                    self.send({"command": "online"})
-                    self.send({"command": "get_name"})
-                    self.send({"command": "get_icon"})
-                
-                if init_commands:
-                    for cmd in init_commands:
-                        self.send(cmd)
-
-                if not self.register and not self.login:
-                    self.initialised = True
-                    if self.on_ready is not None:
-                        threading.Thread(target=self.on_ready).start() #TODO weird workaround, make it better
-
-                total_data = b""
-                while self.running:
-                    recvd_packet = ssock.recv(1024)
-                    if not recvd_packet: break
-                    total_data += recvd_packet
-                    if b"\n" in total_data:
-                        data = total_data.decode("utf-8").split("\n")
-                        total_data = ("\n".join(data[1:])).encode("utf-8")
-                        self.__handle_packet(data[0])
+            while self.running:
+                line = await reader.readline()
+                if not line: break
+                await self.__handle_packet(line)
+        finally:
+            writer.close()
+            await writer.wait_closed()
+    
+    def run(self, init_commands: Optional[List[dict]]=None):
+        """
+        Wrapper to call :py:meth:`connect` synchronously.
+        """
+        asyncio.run(self.connect(init_commands))
