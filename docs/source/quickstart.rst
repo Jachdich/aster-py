@@ -40,12 +40,12 @@ Example
 	client = asterpy.Client(ip, port, username, password)
 
 	@client.event
-	def on_message(message):
+	async def on_message(message):
 	    if message.content == "ping":
-	        message.channel.send("pong")
+	        await message.channel.send("pong")
 
 	@client.event
-	def on_ready():
+	async def on_ready():
 	    print("Ready!")
 
 	client.run()

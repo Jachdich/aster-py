@@ -86,7 +86,7 @@ class Client:
         #TODO this is terrible, make it better
         self.waiting_for = None
         self.waiting_data = None
-        self.data_lock = threading.Condition()
+        self.data_lock = asyncio.Condition()
         self.writer = None
 
         self.peers = {}
@@ -122,7 +122,6 @@ class Client:
     async def __handle_packet(self, packet: str):
         # todo handle json decoding error
         # todo UPDATE: PROPERLY handle it
-        print(packet)
         try:
             packet = json.loads(packet)
         except:
@@ -134,7 +133,7 @@ class Client:
         print(f"command is {packet.get('command')}")
 
         if self.waiting_for is not None and packet.get("command") == self.waiting_for:
-            with self.data_lock:
+            async with self.data_lock:
                 self.waiting_data = packet
                 self.waiting_for = None
                 self.data_lock.notify()
@@ -155,6 +154,19 @@ class Client:
             if packet.get("status") != 200:
                 print(f"Packet '{cmd}' failed with code {packet.get('status')}")
                 return
+            
+            if cmd == "login" or cmd == "register":
+                await self.__send_multiple([
+                    {"command": "get_metadata"},
+                    {"command": "list_channels"},
+                    {"command": "online"},
+                    {"command": "get_name"},
+                    {"command": "get_icon"},
+                ])
+
+            if self.init_commands:
+                await self.__send_multiple(init_commands)
+                
 
             if cmd == "content":
                 # print(packet)
@@ -265,10 +277,10 @@ class Client:
             raise RuntimeWarning(f"Attempt to __block_on while already waiting for '{self.waiting_for}'!")
             return
         self.waiting_for = command["command"]
-        with self.data_lock:
+        async with self.data_lock:
             await self.send(command)
             while self.waiting_data is None:
-                self.data_lock.wait()
+                await self.data_lock.wait()
 
         packet = self.waiting_data
         self.waiting_data = None
@@ -311,6 +323,7 @@ class Client:
         raise AsterError(f"Get emoji from {self.ip}:{self.port} returned code {data['code']}")
 
     async def _fetch_pfp(self, uuid: int) -> bytes: # TODO naming...
+        print("getting pfp")
         data = await self.__block_on({"command": "get_user", "uuid": uuid})
         return User.from_json(data["data"]).pfp
 
@@ -327,6 +340,25 @@ class Client:
             for msg in messages:
                 ts.append(tg.create_task(self.send(msg)))
     
+    async def __login(self):
+        if self.login:
+            if self.uuid is None:
+                await self.send({"command": "login", "uname": self.username, "passwd": self.password})
+            else:
+                await self.send({"command": "login", "uuid": self.uuid, "passwd": self.password})
+
+        elif self.register:
+            await self.send({"command": "register", "name": self.username, "passwd": self.password})
+                
+    
+    async def __listen(self, reader):
+        while self.running:
+            print("getting line")
+            line = await reader.readline()
+            print("got line")
+            if not line: break
+            await self.__handle_packet(line)
+    
     async def connect(self, init_commands: Optional[List[dict]]=None):
         """
         Connect to the server and listen for packets. This function blocks until :py:meth:`Client.disconnect` is called.
@@ -336,46 +368,15 @@ class Client:
         context = ssl.SSLContext()
         reader, writer = await asyncio.open_connection(self.ip, self.port, ssl=context)
         self.writer = writer
+        self.init_commands = init_commands
         try:
-            if self.login:
-                if self.uuid is None:
-                    await self.send({"command": "login", "uname": self.username, "passwd": self.password})
-                else:
-                    await self.send({"command": "login", "uuid": self.uuid, "passwd": self.password})
-
-                await reader.readline();
-                # todo: check login status before sending further commands?
-                await self.__send_multiple([
-                    {"command": "get_metadata"},
-                    {"command": "list_channels"},
-                    {"command": "online"},
-                    {"command": "get_name"},
-                    {"command": "get_icon"}])
-            
-            if self.register:
-                await self.send({"command": "register", "name": self.username, "passwd": self.password})
-                await reader.readline();
-                # todo: check register status before sending further commands?
-                await self.__send_multiple([
-                    {"command": "get_metadata"},
-                    {"command": "list_channels"},
-                    {"command": "online"},
-                    {"command": "get_name"},
-                    {"command": "get_icon"},
-                ])
-            
-            if init_commands:
-                await self.__send_multiple(init_commands)
-
             if not self.register and not self.login:
                 self.initialised = True
                 if self.on_ready is not None:
                     self.__start_task(self.on_ready())
 
-            while self.running:
-                line = await reader.readline()
-                if not line: break
-                await self.__handle_packet(line)
+            await self.__login()
+            await self.__listen(reader)
         finally:
             writer.close()
             await writer.wait_closed()

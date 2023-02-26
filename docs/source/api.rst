@@ -30,7 +30,6 @@ Classes
 	.. automethod:: get_channel_by_name
 	.. automethod:: get_name
 	.. automethod:: get_pfp
-	.. automethod:: list_channels
 	.. automethod:: list_emojis
 	.. automethod:: run
 	.. automethod:: send
