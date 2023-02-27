@@ -35,10 +35,10 @@ def fetch_emoji(emoji):
     uuid = int(bits[3])
 
     client = Client(ip, port, "", "", login=False)
-    def on_ready():
+    async def on_ready():
         #TODO weird hack
-        client.username = client.fetch_emoji(uuid)
-        client.disconnect()
+        client.username = await client.fetch_emoji(uuid)
+        await client.disconnect()
     client.on_ready = on_ready
     try:
         client.run()
@@ -46,13 +46,12 @@ def fetch_emoji(emoji):
         return None
     return client.username
 
-
 def fetch_pfp(ip, port, uuid):
     client = Client(ip, port, "", "", login=False)
-    def on_ready():
+    async def on_ready():
         #TODO weird hack
-        client.username = client._fetch_pfp(uuid)
-        client.disconnect()
+        client.username = await client._fetch_pfp(uuid)
+        await client.disconnect()
     client.on_ready = on_ready
     try:
         client.run()
