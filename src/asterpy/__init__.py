@@ -163,8 +163,8 @@ class Client:
                     {"command": "get_icon"},
                 ])
 
-            if self.init_commands:
-                await self.__send_multiple(init_commands)
+                if self.init_commands:
+                    await self.__send_multiple(init_commands)
                 
 
             if cmd == "content":
@@ -324,6 +324,8 @@ class Client:
     async def _fetch_pfp(self, uuid: int) -> bytes: # TODO naming...
         print("getting pfp")
         data = await self.__block_on({"command": "get_user", "uuid": uuid})
+        if data["status"] != 200:
+            return None # failed for some reason
         return User.from_json(data["data"]).pfp
 
     async def list_emojis(self) -> List[Emoji]:
@@ -334,10 +336,8 @@ class Client:
         return [Emoji.from_json(n) for n in data["data"]]
 
     async def __send_multiple(self, messages: List[dict]):
-        async with asyncio.TaskGroup() as tg:
-            ts = []
-            for msg in messages:
-                ts.append(tg.create_task(self.send(msg)))
+        for msg in messages:
+            await self.send(msg) # TODO less efficient cos TaskGroup was introduced in 3.11...
     
     async def __login(self):
         if self.login:
@@ -351,10 +351,9 @@ class Client:
                 
     
     async def __listen(self, reader):
+        reader._limit = 64 * 1024 * 1024 # increase limit to 64MiB, cos messages can get big
         while self.running:
-            print("getting line")
             line = await reader.readline()
-            print("got line")
             if not line: break
             await self.__handle_packet(line)
     
@@ -385,3 +384,4 @@ class Client:
         Wrapper to call :py:meth:`connect` synchronously.
         """
         asyncio.run(self.connect(init_commands))
+
