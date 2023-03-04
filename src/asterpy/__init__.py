@@ -62,25 +62,18 @@ def fetch_pfp(ip, port, uuid):
 
 class Client:
     """Represents a client connection to one server"""
-    def __init__(self, ip: str, port: int, username: str, password: str, uuid=None, login=True, register=False):
+    def __init__(self, username: str, password: str):
         """
-        :param ip: The IP address to connect to
+        :param username: the default username to use for connecting to servers
+        :param password: the default password to use for connecting to servers
         
         """
-        self.ip = ip
-        self.port = port
-        self.username = username
-        self.password = password
-        self.uuid = uuid
         self.on_message = None
         self.on_ready = None
         self.on_packet = None
-        self.self_uuid = 0
-        self.channels = []
+        self.servers = {}
         self.name = ""
         self.pfp_b64 = ""
-        self.login = login
-        self.register = register
 
         #TODO this is terrible, make it better
         self.waiting_for = None
@@ -88,12 +81,27 @@ class Client:
         self.data_lock = asyncio.Condition()
         self.writer = None
 
-        self.peers = {}
         self.running = True
-        self.initialised = False
 
         self.packet_callbacks = {}
         self.tasks = set() # strong references to "set and forget" tasks like ``on_ready``
+    
+    def add_server(self, ip: str, port: int, *, uuid: int=None, username: str=None, password: str=None, login=True, register=False):
+        """
+        Add a server to the list of servers to connect to.
+        
+        :param ip: the IP to connect to.
+        :param port: the port to connect to.
+        :param uuid: User ID to log in with. Prefer specifying this over specifying the username.
+        :param username: The username to log in with. If neither ``uuid`` or ``username`` are specified, the username passed to the constructor will be used.
+        :param password: The password to log in with. If no password is provided, the password passed to the constructor will be used.
+        :param login: Whether or not to log in to this server.
+        :param register: Whether or not to register an account with this server.
+        """
+        
+        username = username or self.username
+        password = password or self.password
+        
     
     def event(self, fn: Callable):
         """
