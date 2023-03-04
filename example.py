@@ -3,7 +3,8 @@ import base64
 import asyncio
 # client = asterpy.Client("127.0.0.1", 2345, "jamsbot", "", 1284344576730345505)
 # client = asterpy.Client("cospox.com", 2345, "jamsbot", "", 1284344576730345505)
-client = asterpy.Client("127.0.0.1", 2345, "KingJellyfish", "", 4682842401153303511)
+client = asterpy.Client("KingJellyfish", "")
+client.add_server("127.0.0.1", 2345, uuid=4682842401153303511)
 
 @client.event
 async def on_message(message):
