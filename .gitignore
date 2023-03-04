@@ -1,4 +1,5 @@
-log.txt
+/log.txt
 __pycache__
 dist
 build
+/src/asterpy.egg-info
