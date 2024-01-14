@@ -85,6 +85,8 @@ class Client:
 
         self.packet_callbacks = {}
         self.tasks = set() # strong references to "set and forget" tasks like ``on_ready``
+        self.username = username
+        self.password = password
     
     def add_server(self, ip: str, port: int, *, uuid: int=None, username: str=None, password: str=None, login=True, register=False):
         """
@@ -101,6 +103,16 @@ class Client:
         
         username = username or self.username
         password = password or self.password
+        # TODO this is a hack to make it work with single servers for now
+        self.ip = ip
+        self.port = port
+        self.uuid = uuid
+        self.self_uuid = uuid
+        self.login = login
+        self.register = register
+        self.initialised = False
+        self.peers = {}
+        self.channels = []
         
     
     def event(self, fn: Callable):
@@ -182,13 +194,14 @@ class Client:
                         packet["content"],
                         self.peers[packet["author_uuid"]],
                         self.get_channel(packet["channel_uuid"]),
-                        packet["date"]
+                        packet["date"],
+                        packet["uuid"]
                     )))
 
             elif cmd == "login" or cmd == "register":
                 self.self_uuid = packet["uuid"]
 
-            elif cmd == "metadata":
+            elif cmd == "get_metadata":
                 for elem in packet["data"]:
                     elem_uuid = elem["uuid"]
                     if elem_uuid in self.peers:
@@ -310,15 +323,21 @@ class Client:
         sync_servers = await self.__block_on({"command": "sync_get_servers"})
         return SyncData.from_json(sync_data, sync_servers)
                 
-    async def fetch_history(self, channel: Channel) -> List[Message]:
+    async def fetch_history(self, channel: Channel, count: int=100,  init_message: Message=None) -> List[Message]:
         """
         Fetch the last 100 messages from a given channel.
 
         :param channel: The channel from which to fetch the messages.
+        :param count: The number of messages to fetch.
+        :param init_message: Fetch ``count`` messages before this message. If init_message == None, then fetch the last ``count`` messages.
         :returns: A list of messages.
         """
-        packet = await self.__block_on({"command": "history", "num": 100, "channel": channel.uuid})
-        return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"]) for elem in packet["data"]]
+        request = {"command": "history", "num": count, "channel": channel.uid}
+        if init_message is not None:
+            request["before_message"] = init_message.uuid
+            
+        packet = await self.__block_on(request)
+        return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"], elem["uuid"]) for elem in packet["data"]]
 
     async def fetch_emoji(self, uid: int) -> Emoji:
         """
@@ -372,7 +391,7 @@ class Client:
         :param init_commands: Optional list of packets to send to the server after connecting.
         """
         context = ssl.SSLContext()
-        reader, writer = await asyncio.open_connection(self.ip, self.port, ssl=context)
+        reader, writer = await asyncio.open_connection(self.ip, self.port)#, ssl=context)
         self.writer = writer
         self.init_commands = init_commands
         try:
