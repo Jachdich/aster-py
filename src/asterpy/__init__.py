@@ -15,6 +15,8 @@ from .emoji import Emoji
 
 DEBUG = True
 
+MY_API_VERSION = [0, 5, 0]
+
 class AsterError(Exception):
     pass
 
@@ -198,6 +200,25 @@ class Client:
                         packet["uuid"]
                     )))
 
+            elif cmd == "API_version":
+                # Check that we support the API version that the server supports
+                remote_version = packet["rel"], packet["maj"], packet["min"]
+
+                # The weird structure of this if-else statement allows the code for raising the error to be reused
+                # without having to check the versions twice. Looks a bit weird though, good candidate for refactoring.
+                if remote_version[0] > MY_API_VERSION[0] or remote_version[1] > MY_API_VERSION[1]:
+                    # Server too new
+                    message = "a newer"
+                elif remote_version[0] < MY_API_VERSION[0] or remote_version[1] < MY_API_VERSION[1]:
+                    # Server too old
+                    message = "an older"
+                else:
+                    # Version is OK!
+                    return
+                raise AsterError(f"Attempt to connect to a server that only supports {message} API version than we do" + 
+                                 f" (We support {MY_API_VERSION[0]}.{MY_API_VERSION[1]}.{MY_API_VERSION[2]}," + 
+                                 f" they support {remote_version[0]}.{remote_version[1]}.{remote_version[2]})")
+                
             elif cmd == "login" or cmd == "register":
                 self.self_uuid = packet["uuid"]
 
@@ -411,4 +432,3 @@ class Client:
         Wrapper to call :py:meth:`connect` synchronously.
         """
         asyncio.run(self.connect(init_commands))
-
