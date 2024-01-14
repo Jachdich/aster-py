@@ -164,7 +164,7 @@ class Client:
             
             if cmd == "login" or cmd == "register":
                 await self.__send_multiple([
-                    {"command": "get_metadata"},
+                    {"command": "metadata"},
                     {"command": "list_channels"},
                     {"command": "online"},
                     {"command": "get_name"},
