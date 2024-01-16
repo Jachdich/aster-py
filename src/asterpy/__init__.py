@@ -202,22 +202,24 @@ class Client:
 
             elif cmd == "API_version":
                 # Check that we support the API version that the server supports
-                remote_version = packet["rel"], packet["maj"], packet["min"]
+                remote_version = packet["version"]
 
-                # The weird structure of this if-else statement allows the code for raising the error to be reused
-                # without having to check the versions twice. Looks a bit weird though, good candidate for refactoring.
-                if remote_version[0] > MY_API_VERSION[0] or remote_version[1] > MY_API_VERSION[1]:
+                if remote_version[0] > MY_API_VERSION[0]:
                     # Server too new
                     message = "a newer"
-                elif remote_version[0] < MY_API_VERSION[0] or remote_version[1] < MY_API_VERSION[1]:
+                elif remote_version[0] < MY_API_VERSION[0]:
                     # Server too old
                     message = "an older"
-                else:
-                    # Version is OK!
-                    return
-                raise AsterError(f"Attempt to connect to a server that only supports {message} API version than we do" + 
-                                 f" (We support {MY_API_VERSION[0]}.{MY_API_VERSION[1]}.{MY_API_VERSION[2]}," + 
-                                 f" they support {remote_version[0]}.{remote_version[1]}.{remote_version[2]})")
+
+                if remote_version[0] != MY_API_VERSION[0]:
+                    # Either case, version doesn't match: raise error
+                    my_version_string = ".".join(map(str, MY_API_VERSION))
+                    remote_version_string = ".".join(map(str, remote_version))
+                    raise AsterError(f"Attempt to connect to a server that only supports {message} API version than we do" + 
+                                     f" (We support {my_version_string}," + 
+                                     f" they support {remote_version_string})")
+
+                # await self.send({"command": "yes, we are indeed an aster client. please connect.", "data": 69420})
                 
             elif cmd == "login" or cmd == "register":
                 self.self_uuid = packet["uuid"]
@@ -251,7 +253,7 @@ class Client:
 
         :param message: The packet to send, as a dictionary.
         """
-        #TODO if not connected, raise proper error
+        # TODO if not connected, raise proper error
         if self.writer is None:
             raise AsterError("Not connected")
         # print((json.dumps(message) + "\n").encode("utf-8"))
