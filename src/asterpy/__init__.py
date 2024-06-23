@@ -196,7 +196,8 @@ class Client:
                 
 
             if cmd == "content":
-                # print(packet)
+                print(packet)
+                print(self.peers)
                 if self.on_message is not None:
                     await self.__start_task(self.on_message(Message(
                         packet["content"],
