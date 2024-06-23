@@ -7,6 +7,7 @@ import threading
 import base64
 import asyncio
 from typing import *
+from enum import Enum, auto
 from .user import User
 from .channel import Channel
 from .message import Message
@@ -15,10 +16,16 @@ from .emoji import Emoji
 
 DEBUG = True
 
-MY_API_VERSION = [0, 5, 0]
+MY_API_VERSION = [0, 0, 1]
 
 class AsterError(Exception):
     pass
+
+class ConnectionMode(Enum):
+    LOGIN = auto()
+    REGISTER = auto()
+    NEITHER = auto()
+    
 
 def debug(*args):
     if DEBUG:
@@ -90,7 +97,7 @@ class Client:
         self.username = username
         self.password = password
     
-    def add_server(self, ip: str, port: int, *, uuid: int=None, username: str=None, password: str=None, login=True, register=False):
+    def add_server(self, ip: str, port: int, *, uuid: int=None, username: str=None, password: str=None, connect_mode: ConnectionMode = ConnectionMode.LOGIN):
         """
         Add a server to the list of servers to connect to.
         
@@ -110,8 +117,7 @@ class Client:
         self.port = port
         self.uuid = uuid
         self.self_uuid = uuid
-        self.login = login
-        self.register = register
+        self.connect_mode = connect_mode
         self.initialised = False
         self.peers = {}
         self.channels = []
@@ -178,7 +184,7 @@ class Client:
             
             if cmd == "login" or cmd == "register":
                 await self.__send_multiple([
-                    {"command": "metadata"},
+                    {"command": "get_metadata"},
                     {"command": "list_channels"},
                     {"command": "online"},
                     {"command": "get_name"},
@@ -348,10 +354,10 @@ class Client:
                 
     async def fetch_history(self, channel: Channel, count: int=100,  init_message: Message=None) -> List[Message]:
         """
-        Fetch the last 100 messages from a given channel.
+        Fetch the last ``count`` messages from a given channel.
 
         :param channel: The channel from which to fetch the messages.
-        :param count: The number of messages to fetch.
+        :param count: The number of messages to fetch. (defeault: 100)
         :param init_message: Fetch ``count`` messages before this message. If init_message == None, then fetch the last ``count`` messages.
         :returns: A list of messages.
         """
@@ -372,7 +378,6 @@ class Client:
         raise AsterError(f"Get emoji from {self.ip}:{self.port} returned code {data['code']}")
 
     async def _fetch_pfp(self, uuid: int) -> bytes: # TODO naming...
-        print("getting pfp")
         data = await self.__block_on({"command": "get_user", "uuid": uuid})
         if data["status"] != 200:
             return None # failed for some reason
@@ -390,14 +395,14 @@ class Client:
             await self.send(msg) # TODO less efficient cos TaskGroup was introduced in 3.11...
     
     async def __login(self):
-        if self.login:
+        if self.connect_mode == ConnectionMode.LOGIN:
             if self.uuid is None:
                 await self.send({"command": "login", "uname": self.username, "passwd": self.password})
             else:
                 await self.send({"command": "login", "uuid": self.uuid, "passwd": self.password})
 
-        elif self.register:
-            await self.send({"command": "register", "name": self.username, "passwd": self.password})
+        elif self.connect_mode == ConnectionMode.REGISTER:
+            await self.send({"command": "register", "uname": self.username, "passwd": self.password})
                 
     
     async def __listen(self, reader):
@@ -418,7 +423,7 @@ class Client:
         self.writer = writer
         self.init_commands = init_commands
         try:
-            if not self.register and not self.login:
+            if self.connect_mode == ConnectionMode.NEITHER:
                 self.initialised = True
                 if self.on_ready is not None:
                     self.__start_task(self.on_ready())
