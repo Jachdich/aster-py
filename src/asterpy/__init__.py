@@ -15,7 +15,7 @@ from .emoji import Emoji
 
 DEBUG = True
 
-MY_API_VERSION = [0, 5, 0]
+MY_API_VERSION = [0, 0, 1]
 
 class AsterError(Exception):
     pass
@@ -178,7 +178,7 @@ class Client:
             
             if cmd == "login" or cmd == "register":
                 await self.__send_multiple([
-                    {"command": "metadata"},
+                    {"command": "get_metadata"},
                     {"command": "list_channels"},
                     {"command": "online"},
                     {"command": "get_name"},
@@ -190,7 +190,8 @@ class Client:
                 
 
             if cmd == "content":
-                # print(packet)
+                print(packet)
+                print(self.peers)
                 if self.on_message is not None:
                     await self.__start_task(self.on_message(Message(
                         packet["content"],
@@ -202,7 +203,7 @@ class Client:
 
             elif cmd == "API_version":
                 # Check that we support the API version that the server supports
-                remote_version = packet["rel"], packet["maj"], packet["min"]
+                remote_version = packet["version"]
 
                 # The weird structure of this if-else statement allows the code for raising the error to be reused
                 # without having to check the versions twice. Looks a bit weird though, good candidate for refactoring.
