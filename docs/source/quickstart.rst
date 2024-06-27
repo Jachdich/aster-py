@@ -31,13 +31,9 @@ Example
 .. code-block:: python
 
 	import asterpy
-
-	ip = "aster server IP"
-	port = aster server port
-	username = "your username"
-	password = "your password"
 	
-	client = asterpy.Client(ip, port, username, password)
+	client = asterpy.Client("Username", "Password")
+	client.add_server("example.com", 2345, uuid=my_uuid)
 
 	@client.event
 	async def on_message(message):
@@ -51,5 +47,4 @@ Example
 	client.run()
 
 
-You can also log in using the UUID of the user, by passing ``uuid=<your uuid>`` in addition to the username.
-
+You can log in either using your uuid (shown), or by passing ``username="your_username"`` into ``client.add_server``, or if you omit both parameters it will use the username passed into the constructor.

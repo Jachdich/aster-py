@@ -17,7 +17,8 @@ Ping example (listens for "ping" and responds "pong")
 ```py
 import asterpy
 
-client = asterpy.Client(ip, port, username, password, uuid)
+client = asterpy.Client("Username", "Password")
+client.add_server("example.com", 2345, uuid=my_uuid)
 
 @client.event
 async def on_message(message):

@@ -18,3 +18,7 @@ help:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+.PHONY: upload
+upload:
+	tar czvf - -C build/html . | ssh root@cospox.com "rm -rf /var/www/html/docs/asterpy/* && tar xzf - -C /var/www/html/docs/asterpy "

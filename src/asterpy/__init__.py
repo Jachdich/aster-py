@@ -22,10 +22,10 @@ class AsterError(Exception):
     pass
 
 class ConnectionMode(Enum):
+    """How to authenticate with the aster server."""
     LOGIN = auto()
     REGISTER = auto()
     NEITHER = auto()
-    
 
 def debug(*args):
     if DEBUG:
@@ -96,14 +96,17 @@ class Client:
         self.tasks = set() # strong references to "set and forget" tasks like ``on_ready``
         self.username = username
         self.password = password
+
+        # TEMP
+        self.channels = []
     
-    def add_server(self, ip: str, port: int, *, uuid: int=None, username: str=None, password: str=None, connect_mode: ConnectionMode = ConnectionMode.LOGIN):
+    def add_server(self, ip: str, port: int, *, username: str=None, password: str=None, uuid: int=None, connect_mode: ConnectionMode=ConnectionMode.LOGIN):
         """
         Add a server to the list of servers to connect to.
         
         :param ip: the IP to connect to.
         :param port: the port to connect to.
-        :param uuid: User ID to log in with. Prefer specifying this over specifying the username.
+        :param uuid: User ID to log in with. Prefer specifying this over specifying the username, as the UUID will not change even if you change the username.
         :param username: The username to log in with. If neither ``uuid`` or ``username`` are specified, the username passed to the constructor will be used.
         :param password: The password to log in with. If no password is provided, the password passed to the constructor will be used.
         :param login: Whether or not to log in to this server.
