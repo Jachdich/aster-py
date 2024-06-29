@@ -1,24 +1,53 @@
 import src.asterpy as asterpy
 import base64
 import asyncio
-# client = asterpy.Client("127.0.0.1", 2345, "jamsbot", "", 1284344576730345505)
-# client = asterpy.Client("cospox.com", 2345, "jamsbot", "", 1284344576730345505)
 # client = asterpy.Client("KingJellyfish", "")
 # client.add_server("127.0.0.1", 2345, uuid=2286544141188136)
 
 client = asterpy.Client("bean", "a")
 client.add_server("cospox.com", 2345, uuid=1508917622722412285)
 
-@client.event
-async def on_message(message):
-    if message.author.uuid == client.uuid:
-        return
-    print(message)
-    await message.channel.send(message.content + " asdf")
+# @client.event
+# async def on_packet(packet):
+#     print(packet)
+
+responses_pending = {}
+lock = asyncio.Condition()
+
+async def get_response(client, ctx: asterpy.Message):
+    async with lock:
+        print("acquired")
+        responses_pending[(ctx.author.uuid, ctx.channel.uid)] = [None, None]
+        while responses_pending[(ctx.author.uuid, ctx.channel.uid)][1] is None:
+            print("waiting...")
+            await lock.wait()
+        print("after while")
+
+    return responses_pending[(ctx.author.uuid, ctx.channel.uid)][1]
 
 @client.event
-async def on_packet(packet):
-    print(packet)
+async def on_message(message):
+    # await message.channel.send(message.content + " asdf")
+    for author_id, channel_id in responses_pending:
+        if message.author.uuid == author_id and message.channel.uid == channel_id:
+            print("got the message")
+            responses_pending[(author_id, channel_id)][1] = message
+            lock.notify()
+            del responses_pending[(author_id, channel_id)]
+
+    if message.content == "thing":
+        await thing(message)
+
+async def thing(ctx):
+    await ctx.channel.send("are u shure (y/n)")
+    res = None
+    while res is None:
+        response = await get_response(client, ctx)
+        if response.content.lower() in ["y", "n"]:
+            res = response.content.lower()
+        print("RAW RESPONSEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE: ", response)
+
+    print("got response", res)
 
 @client.event
 async def on_ready():
