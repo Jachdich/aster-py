@@ -15,9 +15,9 @@ from .message import Message
 from .sync import SyncData, SyncServer
 from .emoji import Emoji
 
-DEBUG = True
+DEBUG = False
 
-MY_API_VERSION = [0, 0, 1]
+MY_API_VERSION = [0, 1, 0]
 
 class AsterError(Exception):
     pass
@@ -160,7 +160,7 @@ class Client:
         if self.on_packet is not None:
             await self.__start_task(self.on_packet(packet))
 
-        print(f"command is {packet.get('command')}")
+        debug(f"command is {packet.get('command')}")
 
         if packet.get("command") in self.waiting_for:
             async with self.data_lock:
