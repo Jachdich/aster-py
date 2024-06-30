@@ -6,6 +6,7 @@ import json
 import threading
 import base64
 import asyncio
+import random
 from typing import *
 from enum import Enum, auto
 from .user import User
@@ -85,8 +86,7 @@ class Client:
         self.pfp_b64 = ""
 
         #TODO this is terrible, make it better
-        self.waiting_for = None
-        self.waiting_data = None
+        self.waiting_for = {}
         self.data_lock = asyncio.Condition()
         self.writer = None
 
@@ -162,10 +162,9 @@ class Client:
 
         print(f"command is {packet.get('command')}")
 
-        if self.waiting_for is not None and packet.get("command") == self.waiting_for:
+        if packet.get("command") in self.waiting_for:
             async with self.data_lock:
-                self.waiting_data = packet
-                self.waiting_for = None
+                self.waiting_for[packet.get("command")][0][1] = packet # wtf
                 self.data_lock.notify()
         
         if packet.get("command", None) is not None:
@@ -199,8 +198,6 @@ class Client:
                 
 
             if cmd == "content":
-                print(packet)
-                print(self.peers)
                 if self.on_message is not None:
                     await self.__start_task(self.on_message(Message(
                         packet["content"],
@@ -301,15 +298,15 @@ class Client:
         if uuid in self.peers:
             return self.peers[uuid].username
 
-    def get_channel(self, uid: int) -> Optional[Channel]:
+    def get_channel(self, uuid: int) -> Optional[Channel]:
         """
         Get the :py:class:`Channel` object associated with the given ID.
 
-        :param uid: The ID of the channel.
+        :param uuid: The ID of the channel.
         :returns: The channel, or ``None`` if it doesn't exist
         """
         for channel in self.channels:
-            if channel.uid == uid: return channel
+            if channel.uuid == uuid: return channel
 
     def get_channel_by_name(self, name: str) -> Optional[Channel]:
         """
@@ -325,21 +322,28 @@ class Client:
     def __add_channel(self, data: Dict[str, Any]):
         self.channels.append(Channel(self, data["name"], data["uuid"]))
 
-    async def __block_on(self, command: dict):
-        if self.waiting_for is not None:
-            raise RuntimeWarning(f"Attempt to __block_on while already waiting for '{self.waiting_for}'!")
-            return
-        self.waiting_for = command["command"]
+    async def get_response(self, packet: dict):
+        if not packet["command"] in self.waiting_for:
+            self.waiting_for[packet["command"]] = []
+        queue: list = self.waiting_for[packet["command"]]
+
+        our_index = random.randint(0, 2**63-1) # TODO this isn't very elegent
+        queue.append([our_index, None])
+
+        def our_data():
+            for i in queue:
+                if i[0] == our_index:
+                    return i
+
         async with self.data_lock:
-            await self.send(command)
-            while self.waiting_data is None:
+            await self.send(packet)
+            while our_data()[1] is None:
                 await self.data_lock.wait()
 
-        packet = self.waiting_data
-        self.waiting_data = None
-        self.waiting_for = None
+        packet = our_data()
+        queue.remove(packet)
 
-        return packet
+        return packet[1]
 
     async def __start_task(self, coro: Coroutine):
         task = asyncio.create_task(coro)
@@ -352,8 +356,8 @@ class Client:
 
         :returns: The :py:class:`SyncData` object, or ``None`` if the server has no sync data.
         """
-        sync_data = await self.__block_on({"command": "sync_get"})
-        sync_servers = await self.__block_on({"command": "sync_get_servers"})
+        sync_data = await self.get_response({"command": "sync_get"})
+        sync_servers = await self.get_response({"command": "sync_get_servers"})
         return SyncData.from_json(sync_data, sync_servers)
                 
     async def fetch_history(self, channel: Channel, count: int=100,  init_message: Message=None) -> List[Message]:
@@ -365,24 +369,24 @@ class Client:
         :param init_message: Fetch ``count`` messages before this message. If init_message == None, then fetch the last ``count`` messages.
         :returns: A list of messages.
         """
-        request = {"command": "history", "num": count, "channel": channel.uid}
+        request = {"command": "history", "num": count, "channel": channel.uuid}
         if init_message is not None:
             request["before_message"] = init_message.uuid
             
-        packet = await self.__block_on(request)
+        packet = await self.get_response(request)
         return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"], elem["uuid"]) for elem in packet["data"]]
 
-    async def fetch_emoji(self, uid: int) -> Emoji:
+    async def fetch_emoji(self, uuid: int) -> Emoji:
         """
-        :param uid: ID of the emoji to fetch.
+        :param uuid: ID of the emoji to fetch.
         """
-        data = await self.__block_on({"command": "get_emoji", "uid": uid})
+        data = await self.get_response({"command": "get_emoji", "uuid": uuid})
         if data["code"] == 0:
             return Emoji.from_json(data["data"])
         raise AsterError(f"Get emoji from {self.ip}:{self.port} returned code {data['code']}")
 
     async def _fetch_pfp(self, uuid: int) -> bytes: # TODO naming...
-        data = await self.__block_on({"command": "get_user", "uuid": uuid})
+        data = await self.get_response({"command": "get_user", "uuid": uuid})
         if data["status"] != 200:
             return None # failed for some reason
         return User.from_json(data["data"]).pfp
@@ -391,7 +395,7 @@ class Client:
         """
         Fetch a list of custom emojis from the server.
         """
-        data = await self.__block_on({"command": "list_emoji"})
+        data = await self.get_response({"command": "list_emoji"})
         return [Emoji.from_json(n) for n in data["data"]]
 
     async def __send_multiple(self, messages: List[dict]):
