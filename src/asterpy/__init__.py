@@ -427,7 +427,7 @@ class Client:
         :param init_commands: Optional list of packets to send to the server after connecting.
         """
         context = ssl.SSLContext()
-        reader, writer = await asyncio.open_connection(self.ip, self.port)#, ssl=context)
+        reader, writer = await asyncio.open_connection(self.ip, self.port, ssl=context)
         self.writer = writer
         self.init_commands = init_commands
         try:
