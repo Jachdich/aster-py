@@ -85,9 +85,7 @@ class Client:
         self.name = ""
         self.pfp_b64 = ""
 
-        #TODO this is terrible, make it better
         self.waiting_for = {}
-        self.data_lock = asyncio.Condition()
         self.writer = None
 
         self.running = True
@@ -163,9 +161,10 @@ class Client:
         debug(f"command is {packet.get('command')}")
 
         if packet.get("command") in self.waiting_for:
-            async with self.data_lock:
-                self.waiting_for[packet.get("command")][0][1] = packet # wtf
-                self.data_lock.notify()
+            queue: list[asyncio.Future] = self.waiting_for[packet["command"]]
+            if len(queue) > 0:
+                fut = queue.pop(0)
+                fut.set_result(packet)
         
         if packet.get("command", None) is not None:
             cmd = packet["command"]
@@ -327,23 +326,12 @@ class Client:
             self.waiting_for[packet["command"]] = []
         queue: list = self.waiting_for[packet["command"]]
 
-        our_index = random.randint(0, 2**63-1) # TODO this isn't very elegent
-        queue.append([our_index, None])
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        queue.append(future)
 
-        def our_data():
-            for i in queue:
-                if i[0] == our_index:
-                    return i
-
-        async with self.data_lock:
-            await self.send(packet)
-            while our_data()[1] is None:
-                await self.data_lock.wait()
-
-        packet = our_data()
-        queue.remove(packet)
-
-        return packet[1]
+        await self.send(packet)
+        return await future
 
     async def __start_task(self, coro: Coroutine):
         task = asyncio.create_task(coro)
