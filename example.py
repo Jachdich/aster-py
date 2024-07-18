@@ -4,8 +4,8 @@ import asyncio
 # client = asterpy.Client("KingJellyfish", "")
 # client.add_server("127.0.0.1", 2345, uuid=2286544141188136)
 
-client = asterpy.Client("newacct", "a")
-client.add_server("localhost", 2345, uuid=4645705226395143)
+client = asterpy.Client("KingJellyfishTwo", "asdf")
+client.add_server("cospox.com", 2345)
 
 # @client.event
 # async def on_packet(packet):
@@ -52,7 +52,21 @@ async def on_ready():
     print("Ready!")
     channel = client.get_channel_by_name("general")
     message = await channel.send("hello world")
-    await message.edit("goodbye world")
+    # message = await client.fetch_history(channel, count=1)
+    await message.delete()
+    print("done")
+#     message = await channel.send("""test
+# 🟦🟦🟦🟦🟦🟦🟦🟦
+# 🟦🟦🟦🟦🟨🟨🟦🟦
+# 🟦🟦🟦🟨🟩🟨🟦🟦
+# 🟦🟦🟨🟨🟩🟨🟦🟦
+# 🟦🟦🟨🟩🟩🟨🟨🟨
+# 🟦🟨🟨🟩🟩🟩🟩🟨
+# 🟨🟨🟩🟩🌄🌄🟩🟩
+# 🟩🟩🟩🟩🌄🌄🏔️🟩
+# """)
+    # await message.delete()
+    # await message.edit("goodbye world")
     # latest_history = await client.fetch_history(client.get_channel_by_name("general"), count=10)
     # earlier_history = await client.fetch_history(client.get_channel_by_name("general"), count=10, init_message=latest_history[0])
     # total_history = await client.fetch_history(client.get_channel_by_name("general"), count=20)

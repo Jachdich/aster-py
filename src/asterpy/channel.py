@@ -21,5 +21,21 @@ class Channel:
         # TODO this is stupid. handle this properly
         return Message(message, None, self, None, response["message"])
 
+    async def fetch_history(self, channel: Channel, count: int=100, init_message: Message=None) -> List[Message]:
+        """
+        Fetch the last ``count`` messages from a given channel.
+
+        :param channel: The channel from which to fetch the messages.
+        :param count: The number of messages to fetch. (defeault: 100)
+        :param init_message: Fetch ``count`` messages before this message. If init_message == None, then fetch the last ``count`` messages.
+        :returns: A list of messages.
+        """
+        request = {"command": "history", "num": count, "channel": channel.uuid}
+        if init_message is not None:
+            request["before_message"] = init_message.uuid
+            
+        packet = await self.client.get_response(request)
+        return [Message(elem["content"], self.peers[elem["author_uuid"]], channel, elem["date"], elem["uuid"]) for elem in packet["data"]]
+
     def to_json(self) -> dict:
         return {"name": self.name, "uuid": self.uuid}

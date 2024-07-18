@@ -20,7 +20,7 @@ class Message:
         await self.channel.client.send({"command": "edit", "message": self.uuid, "new_content": new_content})
 
     async def delete(self):
-        """Delete a message. This message must be sent by the account that's deleting it."""
+        """Delete this message. This message must be sent by the account that's deleting it."""
         await self.channel.client.send({"command": "delete", "message": self.uuid})
 
     def to_json(self):
