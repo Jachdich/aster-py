@@ -1,12 +1,17 @@
-from .user import User
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .user import User
+    from .server import Server
 
 class Message:
     """Represents a message in a channel on the server"""
     # TODO importing Channel to use as a type hint causes circular imports
-    def __init__(self, content: str, user: User, channel, date: int, uuid: int):
+    def __init__(self, content: str, user: User, channel, server: Server, date: int, uuid: int):
         self.content = content
         self.author = user
         self.channel = channel
+        self.server = server
         #: UNIX timestamp
         self.date = date
         self.uuid = uuid

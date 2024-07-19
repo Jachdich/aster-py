@@ -6,54 +6,26 @@ import asyncio
 
 client = asterpy.Client("KingJellyfishTwo", "asdf")
 client.add_server("cospox.com", 2345)
+client.add_server("cospox.com", 2346)
 
 # @client.event
 # async def on_packet(packet):
 #     print(packet)
 
-responses_pending = {}
-lock = asyncio.Condition()
-
-async def get_response(ctx: asterpy.Message):
-    async with lock:
-        responses_pending[(ctx.author.uuid, ctx.channel.uuid)] = None
-        while responses_pending[(ctx.author.uuid, ctx.channel.uuid)] is None:
-            await lock.wait()
-
-    response = responses_pending[(ctx.author.uuid, ctx.channel.uuid)]
-    del responses_pending[(ctx.author.uuid, ctx.channel.uuid)]
-    return response
-
 @client.event
 async def on_message(message):
     # await message.channel.send(message.content + " asdf")
-    for author_id, channel_id in responses_pending:
-        if message.author.uuid == author_id and message.channel.uuid == channel_id:
-            print("got the message")
-            responses_pending[(author_id, channel_id)] = message
-            async with lock:
-                lock.notify()
+    print(message)
 
-    if message.content == "thing":
-        await thing(message)
-
-async def thing(ctx):
-    await ctx.channel.send("are u shure (y/n)")
-    res = None
-    while res is None:
-        response = await get_response(ctx)
-        if response.content.lower() in ["y", "n"]:
-            res = response.content.lower()
-
-    await ctx.channel.send("ok you responded with " + res)
 
 @client.event
 async def on_ready():
     print("Ready!")
-    channel = client.get_channel_by_name("general")
-    message = await channel.send("hello world")
-    # message = await client.fetch_history(channel, count=1)
-    await message.delete()
+    # channel = client.get_channel_by_name("general")
+    # for i in range(10):
+    #     message = await channel.send("hello world")
+    # while (message := await channel.fetch_history(count=1))[0].content == "hello world":
+    #     await message[0].delete()
     print("done")
 #     message = await channel.send("""test
 # 🟦🟦🟦🟦🟦🟦🟦🟦

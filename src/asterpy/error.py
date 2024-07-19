@@ -1,0 +1,3 @@
+class AsterError(Exception):
+    pass
+
