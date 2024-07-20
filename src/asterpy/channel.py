@@ -22,7 +22,7 @@ class Channel:
         # TODO this is stupid. handle this properly
         return Message(message, None, self, None, self.client, response["message"])
 
-    async def fetch_history(self, count: int=100, init_message: Message=None) -> List[Message]:
+    async def fetch_history(self, count: int=100, init_message: Message=None) -> list[Message]:
         """
         Fetch the last ``count`` messages from a given channel.
 

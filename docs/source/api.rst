@@ -14,26 +14,52 @@ Classes
 .. autoclass:: Client
 
 	.. rubric:: Attributes
+	.. autoattribute:: servers
+
+	.. rubric:: Methods
+	.. autodecorator:: asterpy.Client.event
+	.. automethod:: __init__
+	.. automethod:: add_server
+	.. automethod:: get_user
+	.. automethod:: get_channel
+	.. automethod:: get_channel_by_name
+	.. automethod:: connect
+	.. automethod:: run
+
+----
+
+.. autoclass:: Server
+
+	.. rubric:: Attributes
 	.. autoattribute:: channels
+	.. autoattribute:: peers
+	.. autoattribute:: name
+	.. autoattribute:: icon
 	
 	.. rubric:: Methods
 
 	.. automethod:: __init__
-	.. automethod:: call_on_packet
 	.. automethod:: connect
 	.. automethod:: disconnect
-	.. autodecorator:: asterpy.Client.event
-	.. automethod:: fetch_emoji
-	.. automethod:: fetch_history
-	.. automethod:: fetch_sync
 	.. automethod:: get_channel
 	.. automethod:: get_channel_by_name
-	.. automethod:: get_name
-	.. automethod:: get_pfp
+	.. automethod:: get_user
+	.. automethod:: fetch_user
+	.. automethod:: fetch_emoji
+	.. automethod:: fetch_sync
 	.. automethod:: list_emojis
-	.. automethod:: run
 	.. automethod:: send
+	.. automethod:: get_response
 
+
+----
+
+.. autoclass:: ConnectionMode
+
+	.. rubric:: Attributes
+	.. autoattribute:: LOGIN
+	.. autoattribute:: REGISTER
+	.. autoattribute:: NEITHER
 
 ----
 
@@ -41,9 +67,10 @@ Classes
 
 	.. rubric:: Attributes
 	.. autoattribute:: name
-	.. autoattribute:: uid
+	.. autoattribute:: uuid
 	.. rubric:: Methods
 	.. automethod:: send
+	.. automethod:: fetch_history
 
 ----
 
@@ -71,7 +98,7 @@ Classes
 	.. rubric:: Attributes
 	.. autoattribute:: data
 	.. autoattribute:: name
-	.. autoattribute:: uid
+	.. autoattribute:: uuid
 
 ----
 

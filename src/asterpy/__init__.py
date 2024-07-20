@@ -15,6 +15,7 @@ from .sync import SyncData, SyncServer
 from .emoji import Emoji
 from .server import Server
 from .client import Client
+from .connection_mode import ConnectionMode
 
 def fetch_emoji(emoji):
     #emojis of the form <:cospox.com:3245:69420:>

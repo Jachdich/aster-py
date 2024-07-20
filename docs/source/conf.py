@@ -20,11 +20,15 @@ sys.path.insert(0, os.path.abspath("../../src"))
 # -- Project information -----------------------------------------------------
 
 project = 'asterpy'
-copyright = '2023, James Kitching'
+#copyright = '2024, James Kitching'
 author = 'James Kitching'
 
+
+with open("../../setup.cfg", "r") as f:
+    cfg = f.read().split("\n")
+
 # The full version, including alpha/beta/rc tags
-release = '0.1.1'
+release = [line.split("=")[1].strip() for line in cfg if line.split("=")[0].strip() == "version"][0]
 
 
 # -- General configuration ---------------------------------------------------

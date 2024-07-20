@@ -6,6 +6,8 @@ from typing import *
 # if TYPE_CHECKING:
 from .channel import Channel
 from .user import User
+from .emoji import Emoji
+from .sync import SyncData
 import asyncio
 import ssl
 
@@ -13,6 +15,14 @@ MY_API_VERSION = [0, 1, 0]
 
 class Server:
     """Represents a client connection to one server"""
+    #: Server name
+    name: str = ""
+    #: PNG-encoded server picture
+    icon: bytes = b""
+    channels: list[Channel] = []
+    #: Map from UUIDs to Users
+    peers: dict[int, User] = {}
+    
     def __init__(self, ip: str, port: int, *, username: str=None, password: str=None, uuid: int=None, connect_mode: ConnectionMode=ConnectionMode.LOGIN):
         assert connect_mode == ConnectionMode.LOGIN and password is not None, "You must supply a password if logging in"
         assert connect_mode == ConnectionMode.LOGIN and (username is not None or uuid is not None), "You must supply at least one of username or uuid if logging in"
@@ -28,7 +38,8 @@ class Server:
 
         self.running = True
         self.name = ""
-        self.pfp_b64 = ""
+        ## 
+        self.icon = b""
         self.self_uuid = uuid
         
         self.peers = {}
@@ -123,10 +134,10 @@ class Server:
             elif cmd == "get_name":
                 self.name = packet["data"]
             elif cmd == "get_icon":
-                self.pfp_b64 = packet["data"]
+                self.icon = base64.b64decode(packet["data"])
 
         if not self.initialised:
-            if self.self_uuid != 0 and self.name != "" and self.pfp_b64 != "" and len(self.channels) > 0:
+            if self.self_uuid != 0 and self.name != "" and len(self.icon) > 0 and len(self.channels) > 0:
                 self.initialised = True
                 if self.on_ready is not None:
                     await self.on_ready()
@@ -178,18 +189,6 @@ class Server:
         for channel in self.channels:
             if channel.uuid == uuid: return channel
 
-    # TODO is this function required?
-    def get_name(self) -> str:
-        """Get the name of the server."""
-        return self.name
-
-    def get_icon(self) -> bytes:
-        """
-        Get the icon of the server.
-        :returns: PNG-compressed image data.
-        """
-        return base64.b64decode(self.pfp_b64)
-
     def get_channel_by_name(self, name: str) -> Optional[Channel]:
         """
         Get the :py:class:`Channel` object by referring to its name.
@@ -202,7 +201,10 @@ class Server:
             if channel.name == name.strip("#"):
                 return channel
 
-    async def get_response(self, packet: dict):
+    async def get_response(self, packet: dict) -> dict:
+        """Send a packet of data to the server and wait for a response.
+        :param packet: Data to be sent to the server as python dictionary, converted to JSON before sending.
+        :returns: The data from the server, decoded to a python dictionary."""
         if not packet["command"] in self.waiting_for:
             self.waiting_for[packet["command"]] = []
         queue: list = self.waiting_for[packet["command"]]

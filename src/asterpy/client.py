@@ -48,7 +48,7 @@ class Client:
     
     def event(self, fn: Callable):
         """
-        Register an event handler with the client. Possible event handlers are:
+        Register an event handler with the client. Used as a decorator. Possible event handlers are:
             - on_message: Called when any message is received in any channel. ``fn`` must take one argument of type :py:class:`Message`
             - on_packet: Called when any packet of any kind is received. ``fn`` must take one argument of type ``dict``
             - on_ready: Called when the client is finished initialising. ``fn`` must take no arguments.
