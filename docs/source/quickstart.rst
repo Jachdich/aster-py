@@ -37,6 +37,10 @@ Example
 
 	@client.event
 	async def on_message(message):
+	    # check if the message author is us. this requires to check against the self_uuid in the server,
+	    # because in aster (unlike discord) uuids are per-server
+	    if message.author.uuid == message.server.self_uuid:
+	        return
 	    if message.content == "ping":
 	        await message.channel.send("pong")
 

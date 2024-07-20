@@ -38,8 +38,8 @@ class Server:
 
         self.running = True
         self.name = ""
-        ## 
         self.icon = b""
+        #: UUID of logged in account on this server
         self.self_uuid = uuid
         
         self.peers = {}

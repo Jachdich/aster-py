@@ -35,6 +35,7 @@ Classes
 	.. autoattribute:: peers
 	.. autoattribute:: name
 	.. autoattribute:: icon
+	.. autoattribute:: self_uuid
 	
 	.. rubric:: Methods
 
