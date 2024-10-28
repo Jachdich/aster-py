@@ -20,7 +20,7 @@ class Message:
         """
         Edit a message. The message must have been sent by the account attempting to edit it.
 
-        :param new_content: The content to edit the message to.
+        :param new_content: The new body text of the message.
         """
         await self.channel.client.send({"command": "edit", "message": self.uuid, "new_content": new_content})
 

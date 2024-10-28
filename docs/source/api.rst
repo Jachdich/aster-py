@@ -91,6 +91,8 @@ Classes
 	.. autoattribute:: author
 	.. autoattribute:: channel
 	.. autoattribute:: date
+	.. automethod:: edit
+	.. automethod:: delete
 
 ----
 
