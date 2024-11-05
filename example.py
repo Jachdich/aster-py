@@ -6,7 +6,7 @@ import asyncio
 
 client = asterpy.Client("KingJellyfishTwo", "asdf")
 client.add_server("cospox.com", 2345)
-client.add_server("cospox.com", 2346)
+# client.add_server("cospox.com", 2346)
 
 # @client.event
 # async def on_packet(packet):
@@ -21,6 +21,13 @@ async def on_message(message):
 @client.event
 async def on_ready():
     print("Ready!")
+    channel = client.get_channel_by_name("general")
+    reply_to = (await channel.fetch_history(count=1))[0]
+    await reply_to.reply("This is a message reply")
+
+    replied = (await channel.fetch_history(count=1))[0]
+    print(replied)
+    
     # channel = client.get_channel_by_name("general")
     # for i in range(10):
     #     message = await channel.send("hello world")
