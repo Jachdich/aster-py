@@ -10,13 +10,15 @@ class Channel:
         self.name = name
         self.uuid = uuid
 
-    async def send(self, message: str):
+    async def send(self, message: str, reply_to: int | None=None):
         """
         Send a text message to the channel.
 
         :param message: The text to be sent
+        :param reply_to: The UUID of the message to reply to, or ``None`` if not replying.
         :returns: The ``Message`` object that has been sent
         """
+        # TODO handle reply
         response = await self.client.get_response({"command": "send", "content": message, "channel": self.uuid})
         # TODO handle status
         # TODO this is stupid. handle this properly
