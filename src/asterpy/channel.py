@@ -56,7 +56,7 @@ class Channel:
         request = {"command": "history", "num": count, "channel": self.uuid}
         if init_message is not None:
             request["before_message"] = init_message.uuid
-            
+
         packet = await self._server.get_response(request)
         return [Message(elem["content"], self._server.peers[elem["author_uuid"]], self, self._server, elem["date"], elem["uuid"], reply_uuid=elem.get("reply", None)) for elem in packet["data"]]
 
