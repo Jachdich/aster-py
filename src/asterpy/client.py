@@ -71,7 +71,8 @@ class Client:
                     from_server.get_channel(packet["channel_uuid"]),
                     from_server,
                     packet["date"],
-                    packet["uuid"]
+                    packet["uuid"],
+                    packet.get("reply", None)
                 )))
 
     async def __handle_ready(self):

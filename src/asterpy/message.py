@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 class Message:
     """Represents a message in a channel on the server"""
     # TODO importing Channel to use as a type hint causes circular imports
-    def __init__(self, content: str, user: User, channel, server: Server, date: int, uuid: int, reply_uuid: int | None):
+    def __init__(self, content: str, user: User, channel, server: Server, date: int, uuid: int, reply_uuid: int | None=None):
         self.content = content
         self.author = user
         self.channel = channel
@@ -35,10 +35,12 @@ class Message:
         """Reply to this message. Equivalent to sending a new message with the reply field set to this message's UUID.
         
         :returns: The new ``Message`` object that was sent in reply.`"""
-        # TODO implement
+        await self.channel.send(content, reply_to=self.uuid)
 
     def to_json(self):
-        return {"content": self.content, "author_uuid": self.author.uuid, "date": self.date}
+        x = {"content": self.content, "author_uuid": self.author.uuid, "date": self.date}
+        if self.reply_uuid is not None:
+            x["reply"] = self.reply_uuid
     
     def __repr__(self):
-        return f"Message({self.content}, {self.author}, {self.channel}, {self.date}, {self.uuid})"
+        return f"Message({self.content}, {self.author}, {self.channel}, {self.date}, {self.uuid}, reply={self.reply_uuid})"

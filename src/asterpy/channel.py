@@ -1,5 +1,6 @@
 from __future__ import annotations
 from .message import Message
+from .error import AsterError
 
 class Channel:
     """
@@ -18,10 +19,14 @@ class Channel:
         :param reply_to: The UUID of the message to reply to, or ``None`` if not replying.
         :returns: The ``Message`` object that has been sent
         """
-        # TODO handle reply
-        response = await self.client.get_response({"command": "send", "content": message, "channel": self.uuid})
+        packet = {"command": "send", "content": message, "channel": self.uuid}
+        if reply_to is not None:
+            packet["reply"] = reply_to
+        response = await self.client.get_response(packet)
         # TODO handle status
         # TODO this is stupid. handle this properly
+        if response["status"] != 200:
+            raise AsterError(f"Message send failed with code {response['status']}")
         return Message(message, None, self, None, self.client, response["message"])
 
     async def fetch_history(self, count: int=100, init_message: Message=None) -> list[Message]:
@@ -38,7 +43,7 @@ class Channel:
             request["before_message"] = init_message.uuid
             
         packet = await self.client.get_response(request)
-        return [Message(elem["content"], self.client.peers[elem["author_uuid"]], self, self.client, elem["date"], elem["uuid"]) for elem in packet["data"]]
+        return [Message(elem["content"], self.client.peers[elem["author_uuid"]], self, self.client, elem["date"], elem["uuid"], reply_uuid=elem.get("reply", None)) for elem in packet["data"]]
 
     def to_json(self) -> dict:
         return {"name": self.name, "uuid": self.uuid}

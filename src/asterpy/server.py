@@ -8,8 +8,10 @@ from .channel import Channel
 from .user import User
 from .emoji import Emoji
 from .sync import SyncData
+from .error import AsterError
 import asyncio
 import ssl
+import base64
 
 MY_API_VERSION = [0, 1, 0]
 
