@@ -10,6 +10,7 @@ from .emoji import Emoji
 from .sync import SyncData
 import asyncio
 import ssl
+import base64
 
 MY_API_VERSION = [0, 1, 0]
 
@@ -24,8 +25,8 @@ class Server:
     peers: dict[int, User] = {}
     
     def __init__(self, ip: str, port: int, *, username: str=None, password: str=None, uuid: int=None, connect_mode: ConnectionMode=ConnectionMode.LOGIN):
-        assert connect_mode == ConnectionMode.LOGIN and password is not None, "You must supply a password if logging in"
-        assert connect_mode == ConnectionMode.LOGIN and (username is not None or uuid is not None), "You must supply at least one of username or uuid if logging in"
+        assert connect_mode != ConnectionMode.LOGIN or password is not None, "You must supply a password if logging in"
+        assert connect_mode != ConnectionMode.LOGIN or (username is not None or uuid is not None), "You must supply at least one of username or uuid if logging in"
 
         self.username = username
         self.password = password
@@ -42,16 +43,18 @@ class Server:
         #: UUID of logged in account on this server
         self.self_uuid = uuid
         
-        self.peers = {}
+        self.peers: dict[int, User] = {}
         self.channels = []
 
         self.initialised = False
         self.on_packet = None
         self.on_ready = None
+        self.tasks = set()
 
     async def __handle_packet(self, packet: str):
         # todo handle json decoding error
         # todo UPDATE: PROPERLY handle it
+        # print(packet)
         try:
             packet = json.loads(packet)
         except:
@@ -68,10 +71,11 @@ class Server:
             cmd = packet["command"]
 
             if packet.get("status") != 200:
-                print(f"Packet '{cmd}' failed with code {packet.get('status')}")
+                # print(f"Packet '{cmd}' failed with code {packet.get('status')}")
                 return
             
             if cmd == "login" or cmd == "register":
+                self.self_uuid = packet["uuid"]
                 await self.__send_multiple([
                     {"command": "get_metadata"},
                     {"command": "list_channels"},
@@ -116,9 +120,6 @@ class Server:
 
                 # await self.send({"command": "yes, we are indeed an aster client. please connect.", "data": 69420})
                 
-            elif cmd == "login" or cmd == "register":
-                self.self_uuid = packet["uuid"]
-
             elif cmd == "get_metadata":
                 for elem in packet["data"]:
                     elem_uuid = elem["uuid"]
@@ -137,7 +138,7 @@ class Server:
                 self.icon = base64.b64decode(packet["data"])
 
         if not self.initialised:
-            if self.self_uuid != 0 and self.name != "" and len(self.icon) > 0 and len(self.channels) > 0:
+            if self.self_uuid != 0 and self.self_uuid is not None and self.name != "" and len(self.icon) > 0 and len(self.channels) > 0:
                 self.initialised = True
                 if self.on_ready is not None:
                     await self.on_ready()
@@ -178,6 +179,17 @@ class Server:
         """
         if uuid in self.peers:
             return self.peers[uuid]
+
+    def get_user_by_name(self, name: str) -> Optional[User]:
+        """
+        Get the :py:class:`User` object from the given username.
+
+        :param name: The username of the desired user.
+        :returns: The :py:class:`User` object, or ``None`` if the user doesn't exist.
+        """
+        for p in self.peers.values():
+            if p.username == name:
+                return p
 
     def get_channel(self, uuid: int) -> Optional[Channel]:
         """
@@ -275,6 +287,11 @@ class Server:
             if not line: break
             await self.__handle_packet(line)
     
+    async def __start_task(self, coro: Coroutine):
+        task = asyncio.create_task(coro)
+        self.tasks.add(task)
+        task.add_done_callback(self.tasks.discard)
+
     async def connect(self, init_commands: Optional[List[dict]]=None):
         """
         Connect to the server and listen for packets. This function blocks until :py:meth:`Client.disconnect` is called.
@@ -289,10 +306,10 @@ class Server:
             if self.connect_mode == ConnectionMode.NEITHER:
                 self.initialised = True
                 if self.on_ready is not None:
-                    self.__start_task(self.on_ready())
+                    await self.__start_task(self.on_ready())
 
             await self.__login()
             await self.__listen(reader)
         finally:
             writer.close()
-            await writer.wait_closed()
+            # await writer.wait_closed()

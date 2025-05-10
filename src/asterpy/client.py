@@ -39,9 +39,9 @@ class Client:
         :param register: Whether or not to register an account with this server.
         """
         
-        username = username or self.username
-        password = password or self.password
-        
+        username = username if username is not None else self.username
+        password = password if password is not None else self.password
+
         self.servers.append(Server(ip, port, username=username, password=password, uuid=uuid, connect_mode=connect_mode))
         self.servers[-1].on_packet = self.__handle_packet
         self.servers[-1].on_ready = self.__handle_ready
