@@ -91,8 +91,10 @@ Classes
 	.. autoattribute:: author
 	.. autoattribute:: channel
 	.. autoattribute:: date
+	.. autoattribute:: reply_uuid
 	.. automethod:: edit
 	.. automethod:: delete
+	.. automethod:: reply
 
 ----
 

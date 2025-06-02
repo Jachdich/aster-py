@@ -16,7 +16,6 @@ class Message:
         self.date = date
         self.uuid = uuid
         #: UUID of the message this is replying to
-        # TODO decode this value from packets correctly
         self.reply_uuid = reply_uuid
 
     async def edit(self, new_content: str):
@@ -34,7 +33,7 @@ class Message:
     async def reply(self, content: str):
         """Reply to this message. Equivalent to sending a new message with the reply field set to this message's UUID.
         
-        :returns: The new ``Message`` object that was sent in reply.`"""
+        :returns: The new ``Message`` object that was sent in reply."""
         await self.channel.send(content, reply_to=self.uuid)
 
     def to_json(self):
