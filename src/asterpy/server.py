@@ -13,7 +13,7 @@ import asyncio
 import ssl
 import base64
 
-MY_API_VERSION = [0, 1, 0]
+MY_API_VERSION = [1, 0, 0]
 
 class Server:
     """Represents a client connection to one server"""
