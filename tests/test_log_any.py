@@ -11,7 +11,8 @@ async def test_metadata(client: asterpy.Client):
     assert_eq(response["status"], 200)
     assert len(response["data"]) > 0
     data = response["data"][0]
-    assert_eq(data["name"], "KingJellyfish")
+    # assert_eq(data["name"], "KingJellyfish") # we don't really know what name the 0 index user will have
+    assert "KingJellyfish" in [i["name"] for i in response["data"]]
     assert "password" not in data
     assert "pfp" in data
     assert "uuid" in data

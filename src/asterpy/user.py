@@ -1,20 +1,23 @@
 from base64 import b64decode
 from typing import Optional
+from .group import Group
 
 class User:
     """Represents a user on the aster server"""
-    def __init__(self, uuid: int, username: str, pfp: Optional[bytes]=None):
+    def __init__(self, uuid: int, username: str, groups: list[int], pfp: Optional[bytes]=None):
         self.uuid = uuid
         self.username = username
         #: PNG-compressed image data
         self.pfp = pfp
+        #: UUIDs of the groups that the user belongs to
+        self.groups = groups
 
     def from_json(json):
         pfp_b64 = json.get("pfp", None)
         pfp = None
         if pfp_b64 is not None:
             pfp = b64decode(pfp_b64)
-        return User(json["uuid"], json["name"], pfp)
+        return User(json["uuid"], json["name"], json["groups"], pfp)
 
     def update_from_json(self, json):
         pfp_b64 = json.get("pfp", None)
@@ -25,3 +28,4 @@ class User:
         if pfp is not None: self.pfp = pfp
         if json.get("uuid") is not None: self.uuid = json["uuid"]
         if json.get("name") is not None: self.username = json["name"]
+        if json.get("groups") is not None: self.groups = json["groups"]

@@ -15,7 +15,10 @@ from .sync import SyncData, SyncServer
 from .emoji import Emoji
 from .server import Server
 from .client import Client
+from .permissions import Permissions, Permable, Perm
+from .group import Group
 from .connection_mode import ConnectionMode
+from .error import AsterError
 
 def fetch_emoji(emoji):
     #emojis of the form <:cospox.com:3245:69420:>

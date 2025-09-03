@@ -17,8 +17,8 @@ def run_tests():
         print(f"Usage: {sys.argv[0]} <path to aster server>")
     import subprocess, traceback, time
     import inspect
-    p = subprocess.Popen([sys.argv[1], "--scratch-db"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    time.sleep(0.1)
+    p = subprocess.Popen([sys.argv[1], "--scratch-db", "--admin-user", "god", "god_password"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    time.sleep(0.4)
     if p.poll() is not None:
         print("Server terminated!")
         print(p.stderr.read().decode("utf-8"))

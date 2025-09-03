@@ -132,6 +132,9 @@ class Server:
             elif cmd == "list_channels":
                 for elem in packet["data"]:
                     self.__add_channel(elem)
+            elif cmd == "list_groups":
+                for elem in packet["data"]:
+                    self.__add_group(elem)
 
             elif cmd == "get_name":
                 self.name = packet["data"]
@@ -148,7 +151,10 @@ class Server:
             await self.on_packet(packet, self)
 
     def __add_channel(self, data: Dict[str, Any]):
-        self.channels.append(Channel(self, data["name"], data["uuid"]))
+        self.channels.append(Channel.from_json(data, self))
+
+    def __add_group(self, data: Dict[str, Any]):
+        self.groups.append(Group.from_json(data))
 
     async def send(self, message: dict[any]):
         """
@@ -257,7 +263,7 @@ class Server:
         data = await self.get_response({"command": "get_user", "uuid": uuid})
         if data["status"] != 200:
             return None # failed for some reason
-        return User.from_json(data["data"]).pfp
+        return User.from_json(data["data"])
 
     async def list_emojis(self) -> List[Emoji]:
         """
@@ -265,6 +271,17 @@ class Server:
         """
         data = await self.get_response({"command": "list_emoji"})
         return [Emoji.from_json(n) for n in data["data"]]
+
+    async def create_channel(self, name: str, position: Optional[int]=None, permissions: Optional[dict[Permable, Permissions]]=None) -> Optional[Channel]:
+        packet = {"command": "create_channel", "name": name, "permissions": {}}
+        if position is not None:
+            packet["position"] = position
+        if permissions is not None:
+            packet["permissions"] = permissions
+        res = await self.get_response(packet)
+        if res["status"] != 200:
+            raise AsterError(f"Creating channel failed. Code: {res['status']}")
+        return self.get_channel(res["uuid"])
 
     async def __send_multiple(self, messages: List[dict]):
         for msg in messages:

@@ -118,6 +118,9 @@ class Client:
             if channel is not None:
                 return channel
 
+    def get_group(self, uuid: int) -> Optional[Group]:
+        assert False
+
     async def __start_task(self, coro: Coroutine):
         task = asyncio.create_task(coro)
         self.tasks.add(task)
