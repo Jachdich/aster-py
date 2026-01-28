@@ -5,8 +5,15 @@ import asyncio
 # client.add_server("127.0.0.1", 2345, uuid=2286544141188136)
 
 client = asterpy.Client("KingJellyfishTwo", "asdf")
+<<<<<<< HEAD
 client.add_server("cospox.com", 2345)
 # client.add_server("cospox.com", 2346)
+=======
+# client = asterpy.Client("admin", "admin")
+client.add_server("cospox.com", 2345)
+# client.add_server("cospox.com", 2346)
+# client.add_server("localhost", 2345)
+>>>>>>> bump version
 
 # @client.event
 # async def on_packet(packet):
