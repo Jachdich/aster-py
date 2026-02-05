@@ -11,7 +11,7 @@ class Message:
         self.content = content
         self.author = user
         self.channel = channel
-        self.server = server
+        self._server = server
         #: UNIX timestamp
         self.date = date
         self.uuid = uuid
@@ -24,11 +24,11 @@ class Message:
 
         :param new_content: The new body text of the message.
         """
-        await self.channel._client.send({"command": "edit", "message": self.uuid, "new_content": new_content})
+        await self.channel._server.send({"command": "edit", "message": self.uuid, "new_content": new_content})
 
     async def delete(self):
         """Delete this message. This message must be sent by the account that's deleting it."""
-        await self.channel.client.send({"command": "delete", "message": self.uuid})
+        await self.channel._server.send({"command": "delete", "message": self.uuid})
 
     async def reply(self, content: str):
         """Reply to this message. Equivalent to sending a new message with the reply field set to this message's UUID.
