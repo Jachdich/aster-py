@@ -24,7 +24,7 @@ class Message:
 
         :param new_content: The new body text of the message.
         """
-        await self.channel.client.send({"command": "edit", "message": self.uuid, "new_content": new_content})
+        await self.channel._client.send({"command": "edit", "message": self.uuid, "new_content": new_content})
 
     async def delete(self):
         """Delete this message. This message must be sent by the account that's deleting it."""
