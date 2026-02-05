@@ -12,7 +12,7 @@ class Channel:
     Represents an aster channel.
     """
 
-    _server: Server
+    server: Server
     name: str
     uuid: int
     #: Position in the list of channels. Top channel is 0, increasing downwards. There should not be any gaps or duplicate positions.
@@ -20,7 +20,7 @@ class Channel:
     #: Channel specific permissions. Each entry represents either a user or group, with the associated permission overrides for that entity.
     permissions: dict[Permable, Permissions]
     def __init__(self, server: Server, name: str, uuid: int, position: int, permissions: dict[Permable, Permissions]):
-        self._server = server
+        self.server = server
         self.name = name
         self.uuid = uuid
         self.position = position
@@ -37,12 +37,12 @@ class Channel:
         packet = {"command": "send", "content": message, "channel": self.uuid}
         if reply_to is not None:
             packet["reply"] = reply_to
-        response = await self._server.get_response(packet)
+        response = await self.server.get_response(packet)
         # TODO handle status
         # TODO this is stupid. handle this properly
         if response["status"] != 200:
             raise AsterError(f"Message send failed with code {response['status']}")
-        return Message(message, None, self, None, self._server, response["message"])
+        return Message(message, None, self, None, self.server, response["message"])
 
     async def fetch_history(self, count: int=100, init_message: Message=None) -> list[Message]:
         """
@@ -57,8 +57,8 @@ class Channel:
         if init_message is not None:
             request["before_message"] = init_message.uuid
 
-        packet = await self._server.get_response(request)
-        return [Message(elem["content"], self._server.peers[elem["author_uuid"]], self, self._server, elem["date"], elem["uuid"], reply_uuid=elem.get("reply", None)) for elem in packet["data"]]
+        packet = await self.server.get_response(request)
+        return [Message(elem["content"], self.server.peers[elem["author_uuid"]], self, self.server, elem["date"], elem["uuid"], reply_uuid=elem.get("reply", None)) for elem in packet["data"]]
 
     def to_json(self) -> dict:
         return {"name": self.name, "uuid": self.uuid, "position": self.position, "permissions": {k: v.to_array() for k, v in self.permissions.values()} }
